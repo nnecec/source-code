@@ -5,29 +5,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import ReactVersion from "shared/ReactVersion";
+import ReactVersion from 'shared/ReactVersion'
 import {
   REACT_FRAGMENT_TYPE,
   REACT_PROFILER_TYPE,
   REACT_STRICT_MODE_TYPE,
   REACT_SUSPENSE_TYPE,
   REACT_SUSPENSE_LIST_TYPE
-} from "shared/ReactSymbols";
+} from 'shared/ReactSymbols'
 
-import { Component, PureComponent } from "./ReactBaseClasses";
-import { createRef } from "./ReactCreateRef";
-import { forEach, map, count, toArray, only } from "./ReactChildren";
+import { Component, PureComponent } from './ReactBaseClasses'
+import { createRef } from './ReactCreateRef'
+import { forEach, map, count, toArray, only } from './ReactChildren'
 import {
   createElement,
   createFactory,
   cloneElement,
   isValidElement,
   jsx
-} from "./ReactElement";
-import { createContext } from "./ReactContext";
-import { lazy } from "./ReactLazy";
-import forwardRef from "./forwardRef";
-import memo from "./memo";
+} from './ReactElement'
+import { createContext } from './ReactContext'
+import { lazy } from './ReactLazy'
+import forwardRef from './forwardRef'
+import memo from './memo'
 import {
   useCallback,
   useContext,
@@ -40,8 +40,8 @@ import {
   useRef,
   useState,
   useListener
-} from "./ReactHooks";
-import { withSuspenseConfig } from "./ReactBatchConfig";
+} from './ReactHooks'
+import { withSuspenseConfig } from './ReactBatchConfig'
 import {
   createElementWithValidation,
   createFactoryWithValidation,
@@ -49,15 +49,15 @@ import {
   jsxWithValidation,
   jsxWithValidationStatic,
   jsxWithValidationDynamic
-} from "./ReactElementValidator";
-import ReactSharedInternals from "./ReactSharedInternals";
-import createFundamental from "shared/createFundamentalComponent";
-import createResponder from "shared/createEventResponder";
+} from './ReactElementValidator'
+import ReactSharedInternals from './ReactSharedInternals'
+import createFundamental from 'shared/createFundamentalComponent'
+import createResponder from 'shared/createEventResponder'
 import {
   enableJSXTransformAPI,
   enableFlareAPI,
   enableFundamentalAPI
-} from "shared/ReactFeatureFlags";
+} from 'shared/ReactFeatureFlags'
 const React = {
   Children: {
     map,
@@ -103,15 +103,15 @@ const React = {
   unstable_withSuspenseConfig: withSuspenseConfig,
 
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: ReactSharedInternals
-};
+}
 
 if (enableFlareAPI) {
-  React.unstable_useListener = useListener;
-  React.unstable_createResponder = createResponder;
+  React.unstable_useListener = useListener
+  React.unstable_createResponder = createResponder
 }
 
 if (enableFundamentalAPI) {
-  React.unstable_createFundamental = createFundamental;
+  React.unstable_createFundamental = createFundamental
 }
 
 // Note: some APIs are added with feature flags.
@@ -121,15 +121,15 @@ if (enableFundamentalAPI) {
 
 if (enableJSXTransformAPI) {
   if (__DEV__) {
-    React.jsxDEV = jsxWithValidation;
-    React.jsx = jsxWithValidationDynamic;
-    React.jsxs = jsxWithValidationStatic;
+    React.jsxDEV = jsxWithValidation
+    React.jsx = jsxWithValidationDynamic
+    React.jsxs = jsxWithValidationStatic
   } else {
-    React.jsx = jsx;
+    React.jsx = jsx
     // we may want to special case jsxs internally to take advantage of static children.
     // for now we can ship identical prod functions
-    React.jsxs = jsx;
+    React.jsxs = jsx
   }
 }
 
-export default React;
+export default React

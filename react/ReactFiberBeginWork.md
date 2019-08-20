@@ -10,6 +10,7 @@ function beginWork(
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
+  // 如果 current 不为空
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;

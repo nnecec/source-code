@@ -124,8 +124,10 @@ export function scheduleUpdateOnFiber(fiber, expirationTime) {
   // checkForNestedUpdates(); // 检测队列中的 Update 是否超出限制
 
   // 遍历 fiber 的父节点上 更新 expirationTime 和 childExpirationTime
-  const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime); // -> markUpdateTimeFromFiberToRoot
-
+  const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
+	if (root === null) {
+    return;
+  }
   root.pingTime = NoWork; // 0
 
   // checkForInterruption(fiber, expirationTime); // 检查是否需要打断(__DEV__)
@@ -502,7 +504,7 @@ function commitRoot(root) {
 
 ## performUnitOfWork
 
-renderRoot 中的
+完成 fiber 上需要完成的工作。
 
 ```javascript
 function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
@@ -512,12 +514,12 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
   const current = unitOfWork.alternate;
 
   let next;
-
+	
   next = beginWork(current, unitOfWork, renderExpirationTime);
 
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
-    // If this doesn't spawn new work, complete the current work.
+    // 如果没有新工作，则标记 complete 
     next = completeUnitOfWork(unitOfWork);
   }
 
@@ -669,7 +671,7 @@ function completeUnitOfWork(unitOfWork: Fiber): Fiber | null {
 ```javascript
 function commitRootImpl(root, renderPriorityLevel) {
   flushPassiveEffects();
-  flushRenderPhaseStrictModeWarningsInDEV();
+  // flushRenderPhaseStrictModeWarningsInDEV();
 
   const finishedWork = root.finishedWork;
   const expirationTime = root.finishedExpirationTime;
@@ -734,10 +736,6 @@ function commitRootImpl(root, renderPriorityLevel) {
     const prevExecutionContext = executionContext;
     executionContext |= CommitContext;
     let prevInteractions: Set<Interaction> | null = null;
-    if (enableSchedulerTracing) {
-      prevInteractions = __interactionsRef.current;
-      __interactionsRef.current = root.memoizedInteractions;
-    }
 
     // Reset this to null before calling lifecycles
     ReactCurrentOwner.current = null;
@@ -754,7 +752,7 @@ function commitRootImpl(root, renderPriorityLevel) {
     nextEffect = firstEffect;
     do {
       try {
-        commitBeforeMutationEffects();
+        commitBeforeMutationEffects(); // getSnapshotBeforeUpdate
       } catch (error) {
         captureCommitPhaseError(nextEffect, error);
         nextEffect = nextEffect.nextEffect;
@@ -790,7 +788,7 @@ function commitRootImpl(root, renderPriorityLevel) {
     nextEffect = firstEffect;
     do {
       try {
-        commitLayoutEffects(root, expirationTime);
+        commitLayoutEffects(root, expirationTime); // 提交所有生命周期
       } catch (error) {
         invariant(nextEffect !== null, "Should be working on an effect.");
         captureCommitPhaseError(nextEffect, error);

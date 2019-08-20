@@ -4,9 +4,15 @@
 
 在 Phase 4 中，通过 `renderRoot -> performUnitOfWork` 调用到 `beginWork`。
 
-根据`expirationTime`判断并标记 `didReceiveUpdate` 用来标记是否需要更新，根据 `workInProgress.tag` 调用不同的更新方法。
+在`beginWork`中，如果`memoizedProps`与`newProps`不相等，则 `didReceiveUpdate`标记为`true`。
 
-下面是根据不同的 tag 调用不同的渲染方式。
+否则如果`renderExpirationTime`大于`updateExpirationTime`，为`false`。
+
+`didReceiveUpdate`用来标记是否需要更新。
+
+然后根据不同的`workInProgress.tag`调用不同的更新方法。
+
+下面是根据不同的 tag 调用不同的构建方法。
 
 ## mountIndeterminateComponent
 
