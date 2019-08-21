@@ -570,7 +570,6 @@ function updateFunctionComponent(
 
   let nextChildren;
   prepareToReadContext(workInProgress, renderExpirationTime);
-  prepareToReadEventComponents(workInProgress);
 
   nextChildren = renderWithHooks(
     current,

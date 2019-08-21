@@ -242,3 +242,17 @@ type UpdateQueue = {
   lastCapturedEffect: Update<State> | null
 };
 ```
+
+## Hook
+
+```javascript
+type Hook = {
+  memoizedState: any,
+
+  baseState: any,
+  baseUpdate: Update<any, any> | null,
+  queue: UpdateQueue<any, any> | null,
+
+  next: Hook | null,
+};
+```
