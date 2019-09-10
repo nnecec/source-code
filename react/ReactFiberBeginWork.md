@@ -471,6 +471,45 @@ function mountIndeterminateComponent(
 }
 ```
 
+## reconcileChildren
+
+diff 算法的入口，构建或更新组件。
+
+```javascript
+export function reconcileChildren(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  nextChildren: any,
+  renderExpirationTime: ExpirationTime,
+) {
+  if (current === null) {
+    // If this is a fresh new component that hasn't been rendered yet, we
+    // won't update its child set by applying minimal side-effects. Instead,
+    // we will add them all to the child before it gets rendered. That means
+    // we can optimize this reconciliation pass by not tracking side-effects.
+    workInProgress.child = mountChildFibers(
+      workInProgress,
+      null,
+      nextChildren,
+      renderExpirationTime,
+    );
+  } else {
+    // If the current child is the same as the work in progress, it means that
+    // we haven't yet started any work on these children. Therefore, we use
+    // the clone algorithm to create a copy of all the current children.
+
+    // If we had any progressed work already, that is invalid at this point so
+    // let's throw it out.
+    workInProgress.child = reconcileChildFibers(
+      workInProgress,
+      current.child,
+      nextChildren,
+      renderExpirationTime,
+    );
+  }
+}
+```
+
 ## mountLazyComponent
 
 lazy 加载完成后，通过`resolveLazyComponentTag`返回组件类型。
@@ -676,5 +715,380 @@ function updateClassComponent(
     renderExpirationTime
   );
   return nextUnitOfWork;
+}
+```
+
+## ChildReconciler
+
+```javascript
+function ChildReconciler(shouldTrackSideEffects) {
+  // 将节点标记为待删除
+  function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
+    if (!shouldTrackSideEffects) {
+      // Noop.
+      return;
+    }
+    // Deletions are added in reversed order so we add it to the front.
+    // At this point, the return fiber's effect list is empty except for
+    // deletions, so we can just append the deletion to the list. The remaining
+    // effects aren't added until the complete phase. Once we implement
+    // resuming, this may not be true.
+    const last = returnFiber.lastEffect;
+    if (last !== null) {
+      last.nextEffect = childToDelete;
+      returnFiber.lastEffect = childToDelete;
+    } else {
+      returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
+    }
+    childToDelete.nextEffect = null;
+    childToDelete.effectTag = Deletion;
+  }
+
+  // 删除父节点下的节点
+  function deleteRemainingChildren(
+    returnFiber: Fiber,
+    currentFirstChild: Fiber | null,
+  ): null {
+    if (!shouldTrackSideEffects) {
+      // Noop.
+      return null;
+    }
+
+    let childToDelete = currentFirstChild;
+    while (childToDelete !== null) {
+      deleteChild(returnFiber, childToDelete);
+      childToDelete = childToDelete.sibling;
+    }
+    return null;
+  }
+  // 调和 数组
+  function reconcileChildrenArray(
+    returnFiber: Fiber,
+    currentFirstChild: Fiber | null,
+    newChildren: Array<*>,
+    expirationTime: ExpirationTime,
+  ): Fiber | null {
+    let resultingFirstChild: Fiber | null = null;
+    let previousNewFiber: Fiber | null = null;
+
+    let oldFiber = currentFirstChild;
+    let lastPlacedIndex = 0;
+    let newIdx = 0;
+    let nextOldFiber = null;
+    for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+      if (oldFiber.index > newIdx) {
+        nextOldFiber = oldFiber;
+        oldFiber = null;
+      } else {
+        nextOldFiber = oldFiber.sibling;
+      }
+      const newFiber = updateSlot(
+        returnFiber,
+        oldFiber,
+        newChildren[newIdx],
+        expirationTime,
+      );
+      if (newFiber === null) {
+        // TODO: This breaks on empty slots like null children. That's
+        // unfortunate because it triggers the slow path all the time. We need
+        // a better way to communicate whether this was a miss or null,
+        // boolean, undefined, etc.
+        if (oldFiber === null) {
+          oldFiber = nextOldFiber;
+        }
+        break;
+      }
+      if (shouldTrackSideEffects) {
+        if (oldFiber && newFiber.alternate === null) {
+          // We matched the slot, but we didn't reuse the existing fiber, so we
+          // need to delete the existing child.
+          deleteChild(returnFiber, oldFiber);
+        }
+      }
+      lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+      if (previousNewFiber === null) {
+        // TODO: Move out of the loop. This only happens for the first run.
+        resultingFirstChild = newFiber;
+      } else {
+        // TODO: Defer siblings if we're not at the right index for this slot.
+        // I.e. if we had null values before, then we want to defer this
+        // for each null value. However, we also don't want to call updateSlot
+        // with the previous one.
+        previousNewFiber.sibling = newFiber;
+      }
+      previousNewFiber = newFiber;
+      oldFiber = nextOldFiber;
+    }
+
+    if (newIdx === newChildren.length) {
+      // We've reached the end of the new children. We can delete the rest.
+      deleteRemainingChildren(returnFiber, oldFiber);
+      return resultingFirstChild;
+    }
+
+    if (oldFiber === null) {
+      // If we don't have any more existing children we can choose a fast path
+      // since the rest will all be insertions.
+      for (; newIdx < newChildren.length; newIdx++) {
+        const newFiber = createChild(
+          returnFiber,
+          newChildren[newIdx],
+          expirationTime,
+        );
+        if (newFiber === null) {
+          continue;
+        }
+        lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        if (previousNewFiber === null) {
+          // TODO: Move out of the loop. This only happens for the first run.
+          resultingFirstChild = newFiber;
+        } else {
+          previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+      }
+      return resultingFirstChild;
+    }
+
+    // Add all children to a key map for quick lookups.
+    const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
+
+    // Keep scanning and use the map to restore deleted items as moves.
+    for (; newIdx < newChildren.length; newIdx++) {
+      const newFiber = updateFromMap(
+        existingChildren,
+        returnFiber,
+        newIdx,
+        newChildren[newIdx],
+        expirationTime,
+      );
+      if (newFiber !== null) {
+        if (shouldTrackSideEffects) {
+          if (newFiber.alternate !== null) {
+            // The new fiber is a work in progress, but if there exists a
+            // current, that means that we reused the fiber. We need to delete
+            // it from the child list so that we don't add it to the deletion
+            // list.
+            existingChildren.delete(
+              newFiber.key === null ? newIdx : newFiber.key,
+            );
+          }
+        }
+        lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        if (previousNewFiber === null) {
+          resultingFirstChild = newFiber;
+        } else {
+          previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+      }
+    }
+
+    if (shouldTrackSideEffects) {
+      // Any existing children that weren't consumed above were deleted. We need
+      // to add them to the deletion list.
+      existingChildren.forEach(child => deleteChild(returnFiber, child));
+    }
+
+    return resultingFirstChild;
+  }
+
+  // 调和 文本节点
+  function reconcileSingleTextNode(
+    returnFiber: Fiber,
+    currentFirstChild: Fiber | null,
+    textContent: string,
+    expirationTime: ExpirationTime,
+  ): Fiber {
+    // 当具有当前 fiber 时
+    if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
+      // 更新已有节点 从第二个子节点开始删除多余节点
+      deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+      const existing = useFiber(currentFirstChild, textContent, expirationTime);
+      existing.return = returnFiber;
+      return existing;
+    }
+    // The existing first child is not a text node so we need to create one
+    // and delete the existing ones.
+    deleteRemainingChildren(returnFiber, currentFirstChild);
+    const created = createFiberFromText(
+      textContent,
+      returnFiber.mode,
+      expirationTime,
+    );
+    created.return = returnFiber;
+    return created;
+  }
+
+  // 调和 ReactElement 节点
+  function reconcileSingleElement(
+    returnFiber: Fiber,
+    currentFirstChild: Fiber | null,
+    element: ReactElement,
+    expirationTime: ExpirationTime,
+  ): Fiber {
+    const key = element.key;
+    let child = currentFirstChild;
+    // 遍历子节点
+    while (child !== null) {
+      // TODO: If key === null and child.key === null, then this only applies to
+      // the first item in the list.
+      if (child.key === key) { // 如果 key 相同
+      // 找到 key 相同且节点类型相同的节点，删除兄弟节点，复用当前节点
+        if (
+          child.tag === Fragment
+            ? element.type === REACT_FRAGMENT_TYPE
+            : child.elementType === element.type ||
+              // Keep this check inline so it only runs on the false path:
+              (__DEV__
+                ? isCompatibleFamilyForHotReloading(child, element)
+                : false)
+        ) {
+          deleteRemainingChildren(returnFiber, child.sibling);
+          const existing = useFiber(
+            child,
+            element.type === REACT_FRAGMENT_TYPE
+              ? element.props.children
+              : element.props,
+            expirationTime,
+          );
+          existing.ref = coerceRef(returnFiber, child, element);
+          existing.return = returnFiber;
+          return existing;
+        } else { // 如节点类型不同，删除子节点
+          deleteRemainingChildren(returnFiber, child);
+          break;
+        }
+      } else { // 如果 key 不同，删除整个父节点
+        deleteChild(returnFiber, child);
+      }
+      child = child.sibling;
+    }
+
+    if (element.type === REACT_FRAGMENT_TYPE) {
+      const created = createFiberFromFragment(
+        element.props.children, // 针对 Fragment 的情况，仅去处理它的 children
+        returnFiber.mode,
+        expirationTime,
+        element.key,
+      );
+      created.return = returnFiber;
+      return created;
+    } else {
+      const created = createFiberFromElement(
+        element,
+        returnFiber.mode,
+        expirationTime,
+      );
+      created.ref = coerceRef(returnFiber, currentFirstChild, element);
+      created.return = returnFiber;
+      return created;
+    }
+  }
+
+  // This API will tag the children with the side-effect of the reconciliation
+  // itself. They will be added to the side-effect list as we pass through the
+  // children and the parent.
+  function reconcileChildFibers(
+    returnFiber: Fiber, // 即将 Diff 的父节点 -> current
+    currentFirstChild: Fiber | null, // 当前层的第一个 Fiber 节点 -> workInProgress
+    newChild: any, // 是即将更新的 vdom 节点(可能是 TextNode、可能是 ReactElement，可能是数组)，不是 Fiber 节点 -> nextChildren
+    expirationTime: ExpirationTime,
+  ): Fiber | null {
+    // This function is not recursive.
+    // If the top level item is an array, we treat it as a set of children,
+    // not as a fragment. Nested arrays on the other hand will be treated as
+    // fragment nodes. Recursion happens at the normal flow.
+
+    // Handle top level unkeyed fragments as if they were arrays.
+    // This leads to an ambiguity between <>{[...]}</> and <>...</>.
+    // We treat the ambiguous cases above the same.
+    const isUnkeyedTopLevelFragment =
+      typeof newChild === 'object' &&
+      newChild !== null &&
+      newChild.type === REACT_FRAGMENT_TYPE &&
+      newChild.key === null;
+    if (isUnkeyedTopLevelFragment) {
+      newChild = newChild.props.children;
+    }
+
+    // 是否是 ReactElement
+    const isObject = typeof newChild === 'object' && newChild !== null;
+
+    if (isObject) {
+      // 根据 $$typeof 判断是哪种 element
+      // 在上游已经判断过是否是 Fragment, class 等等情况，这里仅剩下 ReactElement 和 portal 两种情况
+      switch (newChild.$$typeof) {
+        case REACT_ELEMENT_TYPE:
+          return placeSingleChild(
+            reconcileSingleElement(
+              returnFiber,
+              currentFirstChild,
+              newChild,
+              expirationTime,
+            ),
+          );
+        case REACT_PORTAL_TYPE:
+          return placeSingleChild(
+            reconcileSinglePortal(
+              returnFiber,
+              currentFirstChild,
+              newChild,
+              expirationTime,
+            ),
+          );
+      }
+    }
+
+    // 如果是 string 或 数字
+    if (typeof newChild === 'string' || typeof newChild === 'number') {
+      return placeSingleChild(
+        reconcileSingleTextNode(
+          returnFiber,
+          currentFirstChild,
+          '' + newChild,
+          expirationTime,
+        ),
+      );
+    }
+    // 如果是 array
+    if (isArray(newChild)) {
+      return reconcileChildrenArray(
+        returnFiber,
+        currentFirstChild,
+        newChild,
+        expirationTime,
+      );
+    }
+
+    if (getIteratorFn(newChild)) {
+      return reconcileChildrenIterator(
+        returnFiber,
+        currentFirstChild,
+        newChild,
+        expirationTime,
+      );
+    }
+
+    if (typeof newChild === 'undefined' && !isUnkeyedTopLevelFragment) {
+      // If the new child is undefined, and the return fiber is a composite
+      // component, throw an error. If Fiber return types are disabled,
+      // we already threw above.
+      switch (returnFiber.tag) {
+        case ClassComponent: {
+
+        }
+        // Intentionally fall through to the next case, which handles both
+        // functions and classes
+        // eslint-disable-next-lined no-fallthrough
+        case FunctionComponent: {
+          const Component = returnFiber.type;
+        }
+      }
+    }
+
+    // Remaining cases are all treated as empty.
+    return deleteRemainingChildren(returnFiber, currentFirstChild);
+  }
 }
 ```
