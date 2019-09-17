@@ -24,11 +24,8 @@ function ChildReconciler(shouldTrackSideEffects) {
       // Noop.
       return;
     }
-    // Deletions are added in reversed order so we add it to the front.
-    // At this point, the return fiber's effect list is empty except for
-    // deletions, so we can just append the deletion to the list. The remaining
-    // effects aren't added until the complete phase. Once we implement
-    // resuming, this may not be true.
+    // 删除按相反顺序添加，因此将其从头开始添加
+    // 在完成阶段之前不会添加剩余的 effect。 一旦进入恢复模式，都不会真实发生
     const last = returnFiber.lastEffect;
     if (last !== null) {
       last.nextEffect = childToDelete;
@@ -36,11 +33,12 @@ function ChildReconciler(shouldTrackSideEffects) {
     } else {
       returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
     }
+    // 对于需要删除的节点，清空 effect
     childToDelete.nextEffect = null;
     childToDelete.effectTag = Deletion;
   }
 
-  // 删除父节点下的节点
+  // 标记删除父节点下的剩余节点
   function deleteRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -80,6 +78,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     return existingChildren;
   }
 
+  // 复用节点的方法
   function useFiber(
     fiber: Fiber,
     pendingProps: mixed,
@@ -295,29 +294,23 @@ function ChildReconciler(shouldTrackSideEffects) {
       throwOnInvalidObjectType(returnFiber, newChild);
     }
 
-    if (__DEV__) {
-      if (typeof newChild === 'function') {
-        warnOnFunctionType();
-      }
-    }
-
     return null;
   }
 
+  // 对比新老节点 key 是否相同来复用节点
   function updateSlot(
     returnFiber: Fiber,
     oldFiber: Fiber | null,
     newChild: any,
     expirationTime: ExpirationTime,
   ): Fiber | null {
-    // Update the fiber if the keys match, otherwise return null.
-
+    // 如果有老节点，则获取 key
     const key = oldFiber !== null ? oldFiber.key : null;
 
+    // newChild 如果是 string 或者 number，那么都是没有 key 的
     if (typeof newChild === 'string' || typeof newChild === 'number') {
-      // Text nodes don't have keys. If the previous node is implicitly keyed
-      // we can continue to replace it without aborting even if it is not a text
-      // node.
+      // 所有如果老的节点有 key 的话，就不能复用，直接返回 null。
+      // 老的节点 key 为 null 的话，代表老的节点是文本节点，就可以复用
       if (key !== null) {
         return null;
       }
@@ -394,8 +387,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     expirationTime: ExpirationTime,
   ): Fiber | null {
     if (typeof newChild === 'string' || typeof newChild === 'number') {
-      // Text nodes don't have keys, so we neither have to check the old nor
-      // new node for the key. If both are text nodes, they match.
+      // 对于 textNodes 使用 index 匹配
       const matchedFiber = existingChildren.get(newIdx) || null;
       return updateTextNode(
         returnFiber,
@@ -454,12 +446,6 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
 
       throwOnInvalidObjectType(returnFiber, newChild);
-    }
-
-    if (__DEV__) {
-      if (typeof newChild === 'function') {
-        warnOnFunctionType();
-      }
     }
 
     return null;
