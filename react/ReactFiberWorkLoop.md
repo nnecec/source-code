@@ -131,7 +131,7 @@ export function scheduleUpdateOnFiber(fiber, expirationTime) {
   root.pingTime = NoWork; // 0
 
   // checkForInterruption(fiber, expirationTime); // 检查是否需要打断(__DEV__)
-  // recordScheduleUpdate(); // FIXME:标记 update 进度 (__DEV__)
+  // recordScheduleUpdate(); // TODO:标记 update 进度 (__DEV__)
 
   const priorityLevel = getCurrentPriorityLevel(); // 获取当前优先级
 
@@ -143,17 +143,24 @@ export function scheduleUpdateOnFiber(fiber, expirationTime) {
       (executionContext & (RenderContext | CommitContext)) === NoContext
     ) {
       // 边缘情况。在 batchUpdates 的内部，渲染 root 应该是同步的，但更新应该推迟到 batchUpdates 结束
-      let callback = renderRoot(root, Sync, true);
-      while (callback !== null) {
-        callback = callback(true);
-      }
+      performSyncWorkOnRoot(root);
     } else {
       // else 则 ImmediatePriority 优先级的任务被触发
-      scheduleCallbackForRoot(root, ImmediatePriority, Sync);
+      ensureRootIsScheduled(root);
+      schedulePendingInteractions(root, expirationTime);
+      if (executionContext === NoContext) {
+        // Flush the synchronous work now, unless we're already working or inside
+        // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
+        // scheduleCallbackForFiber to preserve the ability to schedule a callback
+        // without immediately flushing it. We only do this for user-initiated
+        // updates, to preserve historical behavior of sync mode.
+        flushSyncCallbackQueue();
+      }
     }
   } else {
     // 如果是异步任务
-    scheduleCallbackForRoot(root, priorityLevel, expirationTime);
+    ensureRootIsScheduled(root);
+    schedulePendingInteractions(root, expirationTime);
   }
 
   if (
@@ -292,6 +299,51 @@ function scheduleCallbackForRoot(root, priorityLevel, expirationTime) {
   }
   // 将新的 root 优先级 与当前交互关联
   schedulePendingInteraction(root, expirationTime);
+}
+```
+
+## performSyncWorkOnRoot
+
+```javascript
+// This is the entry point for synchronous tasks that don't go
+// through Scheduler
+function performSyncWorkOnRoot(root) {
+  // Check if there's expired work on this root. Otherwise, render at Sync.
+  const lastExpiredTime = root.lastExpiredTime;
+  const expirationTime = lastExpiredTime !== NoWork ? lastExpiredTime : Sync;
+  try {
+    if (root.finishedExpirationTime === expirationTime) {
+      // There's already a pending commit at this expiration time.
+      // TODO: This is poorly factored. This case only exists for the
+      // batch.commit() API.
+      commitRoot(root);
+    } else {
+      renderRoot(root, expirationTime, true);
+      // We now have a consistent tree. The next step is either to commit it,
+      // or, if something suspended, wait to commit it after a timeout.
+      stopFinishedWorkLoopTimer();
+
+      root.finishedWork = ((root.current.alternate: any): Fiber);
+      root.finishedExpirationTime = expirationTime;
+
+      resolveLocksOnRoot(root, expirationTime);
+      if (workInProgressRootExitStatus === RootLocked) {
+        // This root has a lock that prevents it from committing. Exit. If we
+        // begin work on the root again, without any intervening updates, it
+        // will finish without doing additional work.
+        markRootSuspendedAtTime(root, expirationTime);
+      } else {
+        // Set this to null to indicate there's no in-progress render.
+        workInProgressRoot = null;
+        commitRoot(root);
+      }
+    }
+  } finally {
+    // Before exiting, make sure there's a callback scheduled for the
+    // pending level.
+    ensureRootIsScheduled(root);
+  }
+  return null;
 }
 ```
 
@@ -485,19 +537,11 @@ function renderRoot(root, expirationTime, isSync) {
 ```javascript
 function commitRoot(root) {
   const renderPriorityLevel = getCurrentPriorityLevel();
-  // 将 ImmediatePriority 更新到当前 priorityLevel 并返回 第二个参数 callback 的执行结果
+  // 将 ImmediatePriority 更新到当前 priorityLevel 并返回第二个参数 callback 的执行结果
   runWithPriority(
     ImmediatePriority,
     commitRootImpl.bind(null, root, renderPriorityLevel)
   );
-  // If there are passive effects, schedule a callback to flush them. This goes
-  // outside commitRootImpl so that it inherits the priority of the render.
-  if (rootWithPendingPassiveEffects !== null) {
-    scheduleCallback(NormalPriority, () => {
-      flushPassiveEffects();
-      return null;
-    });
-  }
   return null;
 }
 ```
@@ -519,7 +563,7 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
 
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
-    // 如果没有新工作，则标记 complete 
+    // 如果没有新工作，则标记 complete
     next = completeUnitOfWork(unitOfWork);
   }
 
@@ -685,23 +729,21 @@ function commitRootImpl(root, renderPriorityLevel) {
   // So we can clear these now to allow a new callback to be scheduled.
   root.callbackNode = null;
   root.callbackExpirationTime = NoWork;
+  root.callbackPriority = NoPriority;
+  root.nextKnownPendingLevel = NoWork;
 
   startCommitTimer();
 
   // Update the first and last pending times on this root. The new first
   // pending time is whatever is left on the root fiber.
-  const updateExpirationTimeBeforeCommit = finishedWork.expirationTime;
-  const childExpirationTimeBeforeCommit = finishedWork.childExpirationTime;
-  const firstPendingTimeBeforeCommit =
-    childExpirationTimeBeforeCommit > updateExpirationTimeBeforeCommit
-      ? childExpirationTimeBeforeCommit
-      : updateExpirationTimeBeforeCommit;
-  root.firstPendingTime = firstPendingTimeBeforeCommit;
-  if (firstPendingTimeBeforeCommit < root.lastPendingTime) {
-    // This usually means we've finished all the work, but it can also happen
-    // when something gets downprioritized during render, like a hidden tree.
-    root.lastPendingTime = firstPendingTimeBeforeCommit;
-  }
+  const remainingExpirationTimeBeforeCommit = getRemainingExpirationTime(
+    finishedWork,
+  );
+  markRootFinishedAtTime(
+    root,
+    expirationTime,
+    remainingExpirationTimeBeforeCommit,
+  );
 
   if (root === workInProgressRoot) {
     // We can reset these now that they are finished.

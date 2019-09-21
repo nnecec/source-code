@@ -1,5 +1,7 @@
 # Phase 6
 
+> [deep-in-react](https://github.com/crazylxr/deep-in-react/blob/master/analysis/%E8%AF%A6%E8%A7%A3%20Diff%20%E8%BF%87%E7%A8%8B.md)
+
 Phase 5 各种情况最后都会调用`reconcileChildren`，该方法即是 diff 算法的入口方法。
 
 通过`ChildReconciler`调用到其中的`reconcileChildFibers`方法，

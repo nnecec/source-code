@@ -48,6 +48,12 @@
 
 ---
 
+> [performSyncWorkOnRoot](../ReactFiberWorkLoop.md#performSyncWorkOnRoot)
+
+当前同步渲染的入口，根据 expirationTime 进入 commitRoot 或 renderRoot
+
+---
+
 > [renderRoot](../ReactFiberWorkLoop.md#renderRoot)
 
 目前`isSync`固定为`true`
