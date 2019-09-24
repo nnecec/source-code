@@ -1,22 +1,21 @@
-import { wrapMapToPropsConstant, wrapMapToPropsFunc } from "./wrapMapToProps";
+import { wrapMapToPropsConstant, wrapMapToPropsFunc } from './wrapMapToProps'
 
 // 可以是 function
-export function whenMapStateToPropsIsFunction(mapStateToProps) {
-  return typeof mapStateToProps === "function"
-    ? wrapMapToPropsFunc(mapStateToProps, "mapStateToProps")
-    : undefined;
+export function whenMapStateToPropsIsFunction (mapStateToProps) {
+  return typeof mapStateToProps === 'function'
+    ? wrapMapToPropsFunc(mapStateToProps, 'mapStateToProps')
+    : undefined
 }
 
 // 可以为空
-export function whenMapStateToPropsIsMissing(mapStateToProps) {
-  return !mapStateToProps ? wrapMapToPropsConstant(() => ({})) : undefined;
+export function whenMapStateToPropsIsMissing (mapStateToProps) {
+  return !mapStateToProps ? wrapMapToPropsConstant(() => ({})) : undefined
 }
 
-export default [whenMapStateToPropsIsFunction, whenMapStateToPropsIsMissing];
+export default [whenMapStateToPropsIsFunction, whenMapStateToPropsIsMissing]
 
-
-/** 
- * 
+/**
+ *
  * match(
       mapStateToProps,
       mapStateToPropsFactories,
