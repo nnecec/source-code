@@ -181,6 +181,7 @@ export default function connectAdvanced (
       const renderIsScheduled = useRef(false)
 
       // 组件的 props
+      // 包含 mapStateToProps  mapDispatchToProps 获得的 dispatch 和 state
       const actualChildProps = usePureOnlyMemo(() => {
         // 这里的棘手逻辑：
         // 此渲染可能是由 Redux Store 更新触发的，该更新产生了新的 child props
@@ -214,7 +215,7 @@ export default function connectAdvanced (
         }
       })
 
-      // 我们的重新订阅逻辑仅在 Store/subscription 设置更改时运行
+      // 重新订阅逻辑 仅在 Store 和 subscription 设置更改时执行
       useIsomorphicLayoutEffect(() => {
         // If we're not subscribed to the store, nothing to do here
         if (!shouldHandleStateChanges) return
@@ -301,7 +302,7 @@ export default function connectAdvanced (
         return unsubscribeWrapper
       }, [store, subscription, childPropsSelector])
 
-      // 实际渲染子组件
+      // 实际渲染的子组件
       const renderedWrappedComponent = useMemo(
         () => <WrappedComponent {...actualChildProps} ref={forwardedRef} />,
         [forwardedRef, WrappedComponent, actualChildProps]
