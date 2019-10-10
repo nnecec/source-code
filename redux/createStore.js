@@ -1,16 +1,7 @@
 import $$observable from 'symbol-observable'
 
+import ActionTypes from './utils/actionTypes'
 import isPlainObject from './utils/isPlainObject'
-
-/**
- * 这是Redux保留的私有 action
- * 对于任何未知的 actions ，必须返回当前的 state
- * 如果当前 state 未定义，必须返回 state 初始值
- * 不要在代码中直接引用这些 action types
- */
-export const ActionTypes = {
-  INIT: '@@redux/INIT'
-}
 
 /**
  * 创建一个 Redux store 来以存放应用中所有的 state。应用中应有且仅有一个 store
@@ -22,7 +13,7 @@ export const ActionTypes = {
  *
  * @param {any} [preloadedState] 初始 state。在同构应用中，你可以决定是否把服务端传来的 state 水合（hydrate）后传给它，或者从之前保存的用户会话中恢复一个传给它。如果你使用 combineReducers 创建 reducer，它必须是一个普通对象，与传入的 keys 保持同样的结构。否则，你可以自由传入任何 reducer 可理解的内容。
  *
- * @param {Function} [enhancer] Store enhancer 是一个组合 store creator 的高阶函数，返回一个新的强化过的 store creator。这与 middleware 相似，它也允许你通过复合函数改变 store 接口。
+ * @param {Function} [enhancer] Store enhancer 是一个组合 store creator 的高阶函数，返回一个新的强化过的 store creator。与 middleware 相似，它也允许你通过复合函数改变 store 接口。
  *
  * @returns {Store} 保存了应用所有 state 的对象。改变 state 的惟一方法是 dispatch action。你也可以 subscribe 监听 state 的变化，然后更新 UI。
  */
@@ -30,12 +21,12 @@ export default function createStore (reducer, preloadedState, enhancer) {
   // 检测参数合法性
   if (
     (typeof preloadedState === 'function' && typeof enhancer === 'function') ||
-		(typeof enhancer === 'function' && typeof arguments[3] === 'function')
+    (typeof enhancer === 'function' && typeof arguments[3] === 'function')
   ) {
     throw new Error(
       'It looks like you are passing several store enhancers to ' +
-			'createStore(). This is not supported. Instead, compose them ' +
-			'together to a single function'
+      'createStore(). This is not supported. Instead, compose them ' +
+      'together to a single function'
     )
   }
   // 当第二个参数为 function，且不存在第三个参数，说明没传 preloadedState
@@ -95,9 +86,9 @@ export default function createStore (reducer, preloadedState, enhancer) {
     if (isDispatching) {
       throw new Error(
         'You may not call store.subscribe() while the reducer is executing. ' +
-				'If you would like to be notified after the store has been updated, subscribe from a ' +
-				'component and invoke store.getState() in the callback to access the latest state. ' +
-				'See https://redux.js.org/api-reference/store#subscribe(listener) for more details.'
+        'If you would like to be notified after the store has been updated, subscribe from a ' +
+        'component and invoke store.getState() in the callback to access the latest state. ' +
+        'See https://redux.js.org/api-reference/store#subscribe(listener) for more details.'
       )
     }
 
@@ -121,29 +112,30 @@ export default function createStore (reducer, preloadedState, enhancer) {
       // 移除对应的listener
       const index = nextListeners.indexOf(listener)
       nextListeners.splice(index, 1)
+      currentListeners = null
     }
   }
 
   /**
-	 * dispatch action 这是唯一触发 state 变动的方法。
-	 * reducer 常常用于创建 store，当调用时会和当前的 state 和 action 一起。
-	 * 返回值被作为下一个 state，并且 listener 都会被通知
-	 *
-	 * 基础的执行只支持object，如果你想要 dispatch Promise/Observabel/thunk或其他，
-	 * 你需要包裹 function 到相应的 middleware
-	 *
-	 * @param {Object} action 一个 object，代表“有何变动”。这是保持 actions 可序列化从而使你可以记录或回放用户操作的好主意，
-	 * 或使用 redux-devtools 时间旅行。action 必须包含 type 属性且不能等于 undefined，最好使用字符串常量
-	 * @returns {Object} 为了方便，返回你 dispatch 的 action
-	 *
-	 * Note：如果你使用自定义middleware，可能会包裹 dispatch() 导致返回其他
-	 */
+   * dispatch action 这是唯一触发 state 变动的方法。
+   * reducer 常常用于创建 store，当调用时会和当前的 state 和 action 一起。
+   * 返回值被作为下一个 state，并且 listener 都会被通知
+   *
+   * 基础的执行只支持object，如果你想要 dispatch Promise/Observable/thunk 或其他，
+   * 你需要包裹 function 到相应的 middleware
+   *
+   * @param {Object} action 一个 object，代表“有何变动”。这是保持 actions 可序列化从而使你可以记录或回放用户操作的好主意，
+   * 或使用 redux-devtools 时间旅行。action 必须包含 type 属性且不能等于 undefined，最好使用字符串常量
+   * @returns {Object} 为了方便，返回你 dispatch 的 action
+   *
+   * Note：如果你使用自定义middleware，可能会包裹 dispatch() 导致返回其他
+   */
   function dispatch (action) {
     // 检测是否是基本对象
     if (!isPlainObject(action)) {
       throw new Error(
         'Actions must be plain objects. ' +
-				'Use custom middleware for async actions.'
+        'Use custom middleware for async actions.'
       )
     }
 
@@ -151,7 +143,7 @@ export default function createStore (reducer, preloadedState, enhancer) {
     if (typeof action.type === 'undefined') {
       throw new Error(
         'Actions may not have an undefined "type" property. ' +
-				'Have you misspelled a constant?'
+        'Have you misspelled a constant?'
       )
     }
     // reducer 内部不允许再次 dispatch

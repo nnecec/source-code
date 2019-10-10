@@ -5,9 +5,7 @@ import applyMiddleware from './applyMiddleware'
 import compose from './compose'
 import warning from './utils/warning'
 
-/**
- * 校验代码在 非production环境 是否被压缩
- */
+// 校验代码在 非production环境 是否被压缩
 function isCrushed () {}
 
 if (
