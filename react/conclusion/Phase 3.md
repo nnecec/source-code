@@ -1,6 +1,6 @@
 # Phase 3
 
-经过 Phase 2 初始化`ReactRoot`之后，调用`updateContainer`方法。
+经过 Phase 2 构建`ReactDOMRoot`实例之后，调用`updateContainer`方法。
 
 > [updateContainer](../ReactFiberReconciler.md#updateContainer)
 
@@ -8,9 +8,9 @@
 
 ---
 
-> [requestCurrentTime](../ReactFiberWorkLoop.md#requestCurrentTime)
+> [requestCurrentTimeForUpdate](../ReactFiberWorkLoop.md#requestCurrentTimeForUpdate)
 
-通过`requestCurrentTime`计算并返回`currentTime`。
+通过`requestCurrentTimeForUpdate`计算并返回`currentTime`。
 
 在控制台获取一个`now()`时间，本例中为 17287028.655，通过`msToExpirationTime`计算返回的值则为
 
@@ -27,7 +27,7 @@ currentTime = 1073741821 - ((17287028.655 / 10) | 0) = 1072013119
 - 需要立即响应的，返回`Sync`，即最大值减 1(1073741823)
 - 用户操作，需要即时响应的
 
-  通过`computeInteractiveExpiration`计算，代入之前得到的`currentTime`可以得到
+  通过`computeInteractiveExpiration`计算，代入之前得到的`currentTime`可以得到：
 
   expirationTime = 1073741821 - (((1073741821 - 1072013119 + 150 / 10) | 0) + 1) \* 10 = 1056454641
 
@@ -35,7 +35,7 @@ currentTime = 1073741821 - ((17287028.655 / 10) | 0) = 1072013119
 
 - 低优先级，可以异步响应的
 
-  通过`computeAsyncExpiration`计算，代入`currentTime`可以得到 5000 250
+  通过`computeAsyncExpiration`计算，代入`currentTime`可以得到：
 
   expirationTime = 1073741821 - (((1073741821 - 1072013119 + 5000 / 25) | 0) + 1) \* 25 = 1030519246
 
@@ -43,29 +43,10 @@ currentTime = 1073741821 - ((17287028.655 / 10) | 0) = 1072013119
 
 为什么需要根据当前时间去计算，并且按照规定的间隔时间处理返回同一个`expirationTime`？
 
-为了将这个时间间隔内的任务打包，并根据同样的`expirationTime`在同一优先级去执行这一批次的任务。
+为了将这个时间间隔内的任务打包，生成同一`expirationTime`，并据此在同一优先级去执行这一批次的任务。
 
 ---
 
 > [scheduleRootUpdate](../ReactFiberReconciler.md#scheduleRootUpdate)
 
-在计算出过期时间后，回到`updateContainer`中，调用`updateContainerAtExpirationTime`。
-
-之后调用`scheduleRootUpdate`。
-
-在`scheduleRootUpdate`中，有按位与(|)和按位或(&)的操作，主要的目的是用来判断变量是否处于对应的状态。
-
-```javascript
-let current = 0b000000;
-// 通过按位或为 current 增加 0b000001 状态
-current = current | 0b000001;
-// 可以继续添加其他状态
-current = current | 0b000010;
-
-// 通过按位与判断 current 是否具有某种状态
-current & 0b000001; // 1
-current & 0b000010; // 2
-current & 0b010000; // 0
-```
-
-这个方法里，首先根据传入的 expirationTime 调用`createUpdate`得到一个 Update 对象。
+在计算出过期时间后，回到`updateContainer`中，获取`context`和`update`。

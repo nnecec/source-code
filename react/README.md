@@ -1,3 +1,3 @@
 # React
 
-> current version: 16.9.0
+> current version: 16.12.0

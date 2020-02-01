@@ -6,8 +6,13 @@
 
 ```javascript
 // 参数来自 ReactRoot 构造函数
-export function createContainer(containerInfo, tag, hydrate) {
-  return createFiberRoot(containerInfo, tag, hydrate); // createFiberRoot -> ReactFiberRoot.js
+export function createContainer(
+  containerInfo,
+  tag,
+  hydrate,
+  hydrationCallbacks
+) {
+  return createFiberRoot(containerInfo, tag, hydrate, hydrationCallbacks); // createFiberRoot -> ReactFiberRoot.js
 }
 ```
 
@@ -32,7 +37,7 @@ export function getPublicRootInstance(container) {
 
 ## updateContainer
 
-`currentTime`是当前时间，
+更新容器内的显示内容。
 
 ```javascript
 export function updateContainer(
@@ -42,7 +47,7 @@ export function updateContainer(
   callback
 ) {
   const current = container.current; // Fiber 对象
-  const currentTime = requestCurrentTime(); // 获取当前时间
+  const currentTime = requestCurrentTimeForUpdate(); // 获取当前时间
   const suspenseConfig = requestCurrentSuspenseConfig();
   // 任务过期时间
   const expirationTime = computeExpirationForFiber(
@@ -50,68 +55,26 @@ export function updateContainer(
     current,
     suspenseConfig
   );
-  return updateContainerAtExpirationTime(
-    element, // ReactDOM.render() 的第一个参数 泛指各种 Virtual DOM
-    container, // ReactDOM.render() 的第二个参数
-    parentComponent, // 父组件
-    expirationTime, // 任务过期时间
-    suspenseConfig,
-    callback
-  );
-}
-```
-
-## updateContainerAtExpirationTime
-
-```javascript
-export function updateContainerAtExpirationTime(
-  element,
-  container,
-  parentComponent,
-  expirationTime,
-  suspenseConfig,
-  callback
-) {
-  // TODO: If this is a nested container, this won't be the root.
-  const current = container.current;
 
   const context = getContextForSubtree(parentComponent);
-  // 初始化 context
   if (container.context === null) {
     container.context = context;
   } else {
     container.pendingContext = context;
   }
 
-  return scheduleRootUpdate(
-    current,
-    element,
-    expirationTime,
-    suspenseConfig,
-    callback
-  ); // 调度更新
-}
-```
-
-## scheduleRootUpdate
-
-调度 Root 节点的更新
-
-```javascript
-function scheduleRootUpdate(current, element, expirationTime, callback) {
-  const update = createUpdate(expirationTime); // createUpdate -> ReactUpdateQueue.js  Update -> Type.md
-  update.payload = { element }; // 将需要渲染的 element 赋值给 payload
+  const update = createUpdate(expirationTime, suspenseConfig);
+  // Caution: React DevTools currently depends on this property
+  // being called "element".
+  update.payload = { element }; // element 是需要渲染的 JSX，挂载在 update.payload 上，赋予了时间的先后顺序。
 
   callback = callback === undefined ? null : callback;
   if (callback !== null) {
     update.callback = callback;
   }
 
-  // if (revertPassiveEffectsChange) { // false
-  //   flushPassiveEffects();
-  // }
-  enqueueUpdate(current, update); // 将 update 添加到 Fiber 的 lastUpdate 属性上   enqueueUpdate -> ReactUpdateQueue.js
-  scheduleWork(current, expirationTime); // 调度 Fiber  scheduleWork -> ReactFiberWorkLoop.js -> scheduleUpdateOnFiber
+  enqueueUpdate(current, update); // 将 update 置入更新队列
+  scheduleWork(current, expirationTime);
 
   return expirationTime;
 }

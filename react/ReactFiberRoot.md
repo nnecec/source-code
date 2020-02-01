@@ -9,11 +9,15 @@
 ```javascript
 export function createFiberRoot(containerInfo, tag, hydrate) {
   const root = new FiberRootNode(containerInfo, tag, hydrate); // FiberRootNode -> Type.md
-
+  if (enableSuspenseCallback) {
+    root.hydrationCallbacks = hydrationCallbacks;
+  }
   // TODO: 用于适应当前类型系统
   const uninitializedFiber = createHostRootFiber(tag); // createHostRootFiber -> ReactFiber.js
   root.current = uninitializedFiber; // root.current 指向 fiber
   uninitializedFiber.stateNode = root; // fiber.stateNode 指向 root
+
+  initializeUpdateQueue(uninitializedFiber);
 
   return root;
 }

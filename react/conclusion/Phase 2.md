@@ -1,8 +1,8 @@
 # Phase 2
 
-Phase 2 可以理解为，在 Phase 1 中拿到了需要渲染的`ReactNode`，在这一阶段将`render`的第二个参数`container`生成`ReactRoot`并生成对应的 fiber。
+在 Phase 1 中拿到了需要渲染的`ReactNode`，在这一阶段将`render`的第二个参数`container`生成`ReactDOMRoot`并生成对应的 fiber。
 
-从而可以将`ReactNode`渲染到`ReactRoot`中。
+从而可以将`ReactNode`渲染到`ReactDOMRoot`中。
 
 ---
 
@@ -22,13 +22,15 @@ Phase 2 可以理解为，在 Phase 1 中拿到了需要渲染的`ReactNode`，�
 
 第一步，调用`legacyCreateRootFromDOMContainer`返回结果并赋值给`root`和`container._reactRootContainer`。
 
+而在后续的更新渲染中，则不需要创建 root，直接获取 root 即可。
+
 ---
 
 > [legacyCreateRootFromDOMContainer](../ReactDOM.md)
 
-`legacyCreateRootFromDOMContainer`首先会清空客户端渲染情况下的`container`，然后返回`ReactSyncRoot`实例。
+`legacyCreateRootFromDOMContainer`首先会清空客户端渲染情况下的`container`，然后返回`ReactDOMRoot`实例。
 
-`ReactSyncRoot`实例内部将`_internalRoot`指向了调用`createContainer`的返回值，`createContainer`再调用`createFiberRoot`。
+`ReactDOMRoot`实例内部将`_internalRoot`指向了调用`createContainer`的返回值，`createContainer`再调用`createFiberRoot`，构建`FiberRoot`实例。
 
 ---
 
@@ -38,10 +40,27 @@ Phase 2 可以理解为，在 Phase 1 中拿到了需要渲染的`ReactNode`，�
 
 `root.current`指向`createHostRootFiber`构建的`root`的 fiber，该 fiber 的 stateNode，即`root.current.stateNode`又翻过来指向了`root`，形成了循环的指向。
 
+`createHostRootFiber`会根据 tag 的类型，来设定渲染的模式，如 `ConcurrentMode`, `BlockingMode`, `StrictMode`, `NoMode`。
+
+通过按位与(|)和按位或(&)的操作，用来判断变量是否处于对应的状态。
+
+```javascript
+let current = 0b000000;
+// 通过按位或为 current 增加 0b0001 状态
+current = current | 0b0001;
+// 可以继续添加其他状态
+current = current | 0b0010;
+
+// 通过按位与判断 current 是否具有某种状态
+current & 0b0001; // 1
+current & 0b0010; // 2
+current & 0b0100; // 0
+```
+
 ---
 
 > [legacyRenderSubtreeIntoContainer](../ReactDOM.md#legacyRenderSubtreeIntoContainer)
 
 通过`legacyCreateRootFromDOMContainer`构建完成`ReactRoot`后，因为是首次渲染，需要更快的将页面呈现。所以通过`unbatchedUpdates`调用一次非批量渲染，调用`updateContainer`方法。
 
-其实不论是在首次构建还是在更新过程中，都需要在拿到 Root 之后调用`updateContainer`。
+其实不论是在首次构建还是在更新过程中，都需要在拿到 root 之后调用`updateContainer`。

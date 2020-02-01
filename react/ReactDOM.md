@@ -6,30 +6,26 @@ react-dom 的`render`方法是目前渲染组件的方法，服务端的渲染�
 
 ```javascript
 const ReactDOM = {
-  ...
-
   hydrate(element, container, callback) {
     return legacyRenderSubtreeIntoContainer(
       null,
       element,
       container,
       true,
-      callback,
+      callback
     );
   },
 
-  render(element,container,callback) {
+  render(element, container, callback) {
     return legacyRenderSubtreeIntoContainer(
       null,
       element,
       container,
       false,
-      callback,
+      callback
     );
-  },
-
-  ...
-}
+  }
+};
 ```
 
 ## legacyRenderSubtreeIntoContainer
@@ -63,7 +59,7 @@ function legacyRenderSubtreeIntoContainer(
   parentComponent, // 当前组件的父组件，第一次渲染时为 null
   children, // 要插入 DOM 中的组件
   container, // 要插入的容器，如document.getElementById('app')
-  forceHydrate, // 是否 hydrate (hydrate=true  render=false)
+  forceHydrate, // 是否 hydrate (hydrate=false  render=true)
   callback, // 完成后的回调函数
 ) {
   let root = container._reactRootContainer;
@@ -81,11 +77,10 @@ function legacyRenderSubtreeIntoContainer(
         originalCallback.call(instance);
       };
     }
-    // 初次构建不应当经过 batch 处理
-    unbatchedUpdates(() => { // // unbatchedUpdates -> ReactFiberWorkLoop.js
+    // 初次构建无需经过 batch 处理
+    unbatchedUpdates(() => {
       updateContainer(children, fiberRoot, parentComponent, callback);
     });
-
   } else { // 在不是第一次构建的情况下
     fiberRoot = root._internalRoot;
     if (typeof callback === 'function') {
@@ -117,122 +112,14 @@ function legacyCreateRootFromDOMContainer(container, forceHydrate) {
     }
   }
 
-  return new ReactSyncRoot(container, LegacyRoot, shouldHydrate);
+  return createLegacyRoot(
+    // createLegacyRoot -> ReactDOMRoot.md
+    container,
+    shouldHydrate
+      ? {
+          hydrate: true
+        }
+      : undefined
+  );
 }
-```
-
-## ReactSyncRoot ReactRoot
-
-```javascript
-function ReactSyncRoot(
-  container, // 在 container 中创建 ReactRoot
-  tag, // 同步渲染、批量渲染、异步渲染
-  hydrate // 是否 hydrate
-) {
-  const root = createContainer(container, tag, hydrate); // createContainer -> ReactFiberReconciler.js
-  this._internalRoot = root;
-}
-
-function ReactRoot(container, hydrate) {
-  const root = createContainer(container, ConcurrentRoot, hydrate);
-  this._internalRoot = root;
-}
-```
-
-prototype 上定义了 4 个方法。`render`方法通过调用`updateContainer`渲染接受到的组件
-
-```javascript
-ReactRoot.prototype.render = ReactSyncRoot.prototype.render = function(
-  children,
-  callback
-) {
-  const root = this._internalRoot;
-  const work = new ReactWork();
-  callback = callback === undefined ? null : callback;
-  if (callback !== null) {
-    work.then(callback);
-  }
-  updateContainer(children, root, null, work._onCommit); // updateContainer -> ReactFiberReconciler.js
-  return work;
-};
-
-ReactRoot.prototype.unmount = ReactSyncRoot.prototype.unmount = function(
-  callback
-) {
-  const root = this._internalRoot;
-  const work = new ReactWork();
-  callback = callback === undefined ? null : callback;
-  if (callback !== null) {
-    work.then(callback);
-  }
-  updateContainer(null, root, null, work._onCommit);
-  return work;
-};
-
-ReactRoot.prototype.createBatch = function() {
-  const batch = new ReactBatch(this);
-  const expirationTime = batch._expirationTime;
-
-  const internalRoot = this._internalRoot;
-  const firstBatch = internalRoot.firstBatch;
-  if (firstBatch === null) {
-    internalRoot.firstBatch = batch;
-    batch._next = null;
-  } else {
-    // Insert sorted by expiration time then insertion order
-    let insertAfter = null;
-    let insertBefore = firstBatch;
-    while (
-      insertBefore !== null &&
-      insertBefore._expirationTime >= expirationTime
-    ) {
-      insertAfter = insertBefore;
-      insertBefore = insertBefore._next;
-    }
-    batch._next = insertBefore;
-    if (insertAfter !== null) {
-      insertAfter._next = batch;
-    }
-  }
-
-  return batch;
-};
-```
-
-## ReactWork
-
-React 中类型任务系统的类。通过`then`订阅，并在`commit`为`true`时，执行任务系统里的方法。
-
-```javascript
-function ReactWork() {
-  this._callbacks = null;
-  this._didCommit = false;
-  this._onCommit = this._onCommit.bind(this);
-}
-
-ReactWork.prototype.then = function(onCommit) {
-  if (this._didCommit) {
-    onCommit();
-    return;
-  }
-  let callbacks = this._callbacks;
-  if (callbacks === null) {
-    callbacks = this._callbacks = [];
-  }
-  callbacks.push(onCommit);
-};
-ReactWork.prototype._onCommit = function() {
-  if (this._didCommit) {
-    return;
-  }
-  this._didCommit = true;
-  const callbacks = this._callbacks;
-  if (callbacks === null) {
-    return;
-  }
-  for (let i = 0; i < callbacks.length; i++) {
-    const callback = callbacks[i];
-    callback();
-  }
-};
 ```

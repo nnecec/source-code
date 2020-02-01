@@ -1,36 +1,13 @@
 # ReactFiberWorkLoop
 
-## unbatchedUpdates
-
-```javascript
-export function unbatchedUpdates<A, R>(fn: (a: A) => R, a: A): R {
-  if (
-    workPhase !== BatchedPhase &&
-    workPhase !== FlushSyncPhase &&
-    workPhase !== BatchedEventPhase
-  ) {
-    // We're not inside batchedUpdates or flushSync, so unbatchedUpdates is
-    // a no-op.
-    return fn(a);
-  }
-  const prevWorkPhase = workPhase;
-  workPhase = LegacyUnbatchedPhase;
-  try {
-    return fn(a);
-  } finally {
-    workPhase = prevWorkPhase;
-  }
-}
-```
-
-## requestCurrentTime
+## requestCurrentTimeForUpdate
 
 ```javascript
 let currentEventTime = NoWork;
 
-export function requestCurrentTime() {
+export function requestCurrentTimeForUpdate() {
   // 在 RenderPhase / CommitPhase 重新生成 currentTime
-  if (workPhase === RenderPhase || workPhase === CommitPhase) {
+  if ((executionContext & (RenderContext | CommitContext)) !== NoContext) {
     // `now()`可以理解为`performance.now()`(https://developer.mozilla.org/zh-CN/docs/Web/API/Performance/now)
     return msToExpirationTime(now());
   }
@@ -42,24 +19,17 @@ export function requestCurrentTime() {
   currentEventTime = msToExpirationTime(now());
   return currentEventTime;
 }
-// UNIT_SIZE = 10
-export function msToExpirationTime(ms: number): ExpirationTime {
-  return MAGIC_NUMBER_OFFSET - ((ms / UNIT_SIZE) | 0); //
-}
-
-export const now =
-  initialTimeMs < 10000 ? Scheduler_now : () => Scheduler_now() - initialTimeMs;
 ```
 
 ## computeExpirationForFiber
 
-计算 expirationTime
+计算 expirationTime，数字越大优先级越高。
 
 ```javascript
-export function computeExpirationForFiber(currentTime, fiber) {
+export function computeExpirationForFiber(currentTime, fiber, suspenseConfig) {
   const mode = fiber.mode;
   // 通过二进制的 | ，添加了 某个 mode，通过 & 判断是否被加上过该 mode
-  if ((mode & BatchedMode) === NoMode) {
+  if ((mode & BlockingMode) === NoMode) {
     return Sync; // 1073741823
   }
 
@@ -68,7 +38,7 @@ export function computeExpirationForFiber(currentTime, fiber) {
     return priorityLevel === ImmediatePriority ? Sync : Batched;
   }
 
-  if (workPhase === RenderPhase) {
+  if ((executionContext & RenderContext) !== NoContext) {
     // Use whatever time we're already rendering
     return renderExpirationTime;
   }
@@ -117,7 +87,7 @@ export function computeExpirationForFiber(currentTime, fiber) {
 
 ## scheduleUpdateOnFiber
 
-也就是`scheduleWork`，调度 Fiber 上的更新方法。
+调度 Fiber 上的更新方法。
 
 ```javascript
 export function scheduleUpdateOnFiber(fiber, expirationTime) {
@@ -125,29 +95,28 @@ export function scheduleUpdateOnFiber(fiber, expirationTime) {
 
   // 遍历 fiber 的父节点上 更新 expirationTime 和 childExpirationTime
   const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
-	if (root === null) {
+  if (root === null) {
     return;
   }
-  root.pingTime = NoWork; // 0
 
   // checkForInterruption(fiber, expirationTime); // 检查是否需要打断(__DEV__)
   // recordScheduleUpdate(); // TODO:标记 update 进度 (__DEV__)
 
   const priorityLevel = getCurrentPriorityLevel(); // 获取当前优先级
 
+  // 对于同步任务
   if (expirationTime === Sync) {
-    // 如果是同步任务
     if (
-      // 在 unbatchedUpdates 阶段，且 不在 render 或 commit 阶段，则说明是在初次渲染的阶段?
+      // 在 unbatchedUpdates 阶段，且 不在 render 或 commit 阶段，则说明是在初次渲染的阶段
       (executionContext & LegacyUnbatchedContext) !== NoContext &&
       (executionContext & (RenderContext | CommitContext)) === NoContext
     ) {
-      // 边缘情况。在 batchUpdates 的内部，渲染 root 应该是同步的，但更新应该推迟到 batchUpdates 结束
+      // 边缘情况。在 batchUpdates 的内部，渲染 root 应该是同步的，但布局更新应该推迟到 batchUpdates 结束
       performSyncWorkOnRoot(root);
     } else {
-      // else 则 ImmediatePriority 优先级的任务被触发
+      // 在其他阶段
       ensureRootIsScheduled(root);
-      schedulePendingInteractions(root, expirationTime);
+      // schedulePendingInteractions(root, expirationTime);
       if (executionContext === NoContext) {
         // Flush the synchronous work now, unless we're already working or inside
         // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
@@ -234,15 +203,14 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
   }
 
   if (root !== null) {
-    // 更新 root 中的 firstPendingTime 和 lastPendingTime
-    const firstPendingTime = root.firstPendingTime;
-    if (expirationTime > firstPendingTime) {
-      root.firstPendingTime = expirationTime;
+    if (workInProgressRoot === root) {
+      markUnprocessedUpdateTime(expirationTime);
+
+      if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
+        markRootSuspendedAtTime(root, renderExpirationTime);
+      }
     }
-    const lastPendingTime = root.lastPendingTime;
-    if (lastPendingTime === NoWork || expirationTime < lastPendingTime) {
-      root.lastPendingTime = expirationTime;
-    }
+    markRootUpdatedAtTime(root, expirationTime);
   }
 
   return root;
@@ -311,35 +279,56 @@ function performSyncWorkOnRoot(root) {
   // Check if there's expired work on this root. Otherwise, render at Sync.
   const lastExpiredTime = root.lastExpiredTime;
   const expirationTime = lastExpiredTime !== NoWork ? lastExpiredTime : Sync;
-  try {
-    if (root.finishedExpirationTime === expirationTime) {
-      // There's already a pending commit at this expiration time.
-      // TODO: This is poorly factored. This case only exists for the
-      // batch.commit() API.
-      commitRoot(root);
-    } else {
-      renderRoot(root, expirationTime, true);
-      // We now have a consistent tree. The next step is either to commit it,
-      // or, if something suspended, wait to commit it after a timeout.
-      stopFinishedWorkLoopTimer();
 
-      root.finishedWork = ((root.current.alternate: any): Fiber);
-      root.finishedExpirationTime = expirationTime;
+  flushPassiveEffects();
 
-      resolveLocksOnRoot(root, expirationTime);
-      if (workInProgressRootExitStatus === RootLocked) {
-        // This root has a lock that prevents it from committing. Exit. If we
-        // begin work on the root again, without any intervening updates, it
-        // will finish without doing additional work.
-        markRootSuspendedAtTime(root, expirationTime);
-      } else {
-        // Set this to null to indicate there's no in-progress render.
-        workInProgressRoot = null;
-        commitRoot(root);
+  if (root !== workInProgressRoot || expirationTime !== renderExpirationTime) {
+    prepareFreshStack(root, expirationTime);
+    startWorkOnPendingInteractions(root, expirationTime);
+  }
+
+  // If we have a work-in-progress fiber, it means there's still work to do
+  // in this root.
+  if (workInProgress !== null) {
+    const prevExecutionContext = executionContext;
+    executionContext |= RenderContext;
+    const prevDispatcher = pushDispatcher(root);
+    const prevInteractions = pushInteractions(root);
+    startWorkLoopTimer(workInProgress);
+
+    do {
+      try {
+        workLoopSync();
+        break;
+      } catch (thrownValue) {
+        handleError(root, thrownValue);
       }
+    } while (true);
+    resetContextDependencies();
+    executionContext = prevExecutionContext;
+    popDispatcher(prevDispatcher);
+
+    if (workInProgressRootExitStatus === RootFatalErrored) {
+      const fatalError = workInProgressRootFatalError;
+      stopInterruptedWorkLoopTimer();
+      prepareFreshStack(root, expirationTime);
+      markRootSuspendedAtTime(root, expirationTime);
+      ensureRootIsScheduled(root);
+      throw fatalError;
     }
-  } finally {
-    // Before exiting, make sure there's a callback scheduled for the
+
+    if (workInProgress !== null) {
+      // This is a sync render, so we should have finished the whole tree.
+    } else {
+      // We now have a consistent tree. Because this is a sync render, we
+      // will commit it even if something suspended.
+      stopFinishedWorkLoopTimer();
+      root.finishedWork = (root.current.alternate: any);
+      root.finishedExpirationTime = expirationTime;
+      finishSyncRender(root, workInProgressRootExitStatus, expirationTime);
+    }
+
+    // Before exiting, make sure there's a callback scheduled for the next
     // pending level.
     ensureRootIsScheduled(root);
   }
@@ -347,188 +336,106 @@ function performSyncWorkOnRoot(root) {
 }
 ```
 
-## renderRoot
+## performConcurrentWorkOnRoot
 
 ```javascript
-function renderRoot(root, expirationTime, isSync) {
-  // 如果在 到期时间 内没有剩余的工作需立即退出。
-  // 当单个 root 有多个回调时, 较早的回调会刷新以后的回调的工作时，就会发生这种情况。
-  if (root.firstPendingTime < expirationTime) {
+function performConcurrentWorkOnRoot(root, didTimeout) {
+  // Since we know we're in a React event, we can clear the current
+  // event time. The next update will compute a new event time.
+  currentEventTime = NoWork;
+
+  if (didTimeout) {
+    // The render task took too long to complete. Mark the current time as
+    // expired to synchronously render all expired work in a single batch.
+    const currentTime = requestCurrentTimeForUpdate();
+    markRootExpiredAtTime(root, currentTime);
+    // This will schedule a synchronous callback.
+    ensureRootIsScheduled(root);
     return null;
   }
 
-  if (isSync && root.pendingCommitExpirationTime === expirationTime) {
-    // 已经有一个等待中的 commit
-    return commitRoot.bind(null, root);
-  }
+  // Determine the next expiration time to work on, using the fields stored
+  // on the root.
+  const expirationTime = getNextRootExpirationTimeToWorkOn(root);
+  if (expirationTime !== NoWork) {
+    const originalCallbackNode = root.callbackNode;
+    invariant(
+      (executionContext & (RenderContext | CommitContext)) === NoContext,
+      'Should not already be working.'
+    );
 
-  flushPassiveEffects();
+    flushPassiveEffects();
 
-  // 如果 root 或 过期时间 已更改, 丢弃现有堆栈并准备一个新堆栈。否则会从离开的地方继续
-  if (root !== workInProgressRoot || expirationTime !== renderExpirationTime) {
-    prepareFreshStack(root, expirationTime); // 准备一个新 Stack
-    startWorkOnPendingInteraction(root, expirationTime);
-  } else if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
-    if (workInProgressRootHasPendingPing) {
-      // We have a ping at this expiration. Let's restart to see if we get unblocked.
+    // If the root or expiration time have changed, throw out the existing stack
+    // and prepare a fresh one. Otherwise we'll continue where we left off.
+    if (
+      root !== workInProgressRoot ||
+      expirationTime !== renderExpirationTime
+    ) {
       prepareFreshStack(root, expirationTime);
-    } else {
-      const lastPendingTime = root.lastPendingTime;
-      if (lastPendingTime < expirationTime) {
-        // There's lower priority work. It might be unsuspended. Try rendering
-        // at that level immediately, while preserving the position in the queue.
-        return renderRoot.bind(null, root, lastPendingTime);
-      }
-    }
-  }
-
-  // 如果已经有一个工作中的 Fiber，意味着在该 root 中仍有工作
-  if (workInProgress !== null) {
-    const prevExecutionContext = executionContext;
-    executionContext |= RenderContext;
-    let prevDispatcher = ReactCurrentDispatcher.current;
-    workPhase = RenderPhase; // 切换 workPhase 到 RenderPhase
-    let prevDispatcher = ReactCurrentDispatcher.current;
-    if (prevDispatcher === null) {
-      // The React isomorphic package does not include a default dispatcher.
-      // Instead the first renderer will lazily attach one, in order to give
-      // nicer error messages.
-      prevDispatcher = ContextOnlyDispatcher;
-    }
-    ReactCurrentDispatcher.current = ContextOnlyDispatcher;
-    let prevInteractions: Set<Interaction> | null = null;
-
-    startWorkLoopTimer(workInProgress);
-
-    if (isSync) {
-      // 如果是同步的
-      if (expirationTime !== Sync) {
-        // 异步更新已过期。 root 中可能有其他过期的 updates
-        // 我们应该在这个 batch 中渲染所有过期的工作
-        const currentTime = requestCurrentTime();
-        if (currentTime < expirationTime) {
-          executionContext = prevExecutionContext;
-          resetContextDependencies();
-          ReactCurrentDispatcher.current = prevDispatcher;
-          if (enableSchedulerTracing) {
-            __interactionsRef.current = ((prevInteractions: any): Set<Interaction>);
-          }
-          return renderRoot.bind(null, root, currentTime);
-        }
-      }
-    } else {
-      // 由于知道正处于 React 事件中，因此可以清除 currentEventTime
-      // 下一次更新将计算新的 eventTime
-      currentEventTime = NoWork; // 0
+      startWorkOnPendingInteractions(root, expirationTime);
     }
 
-    do {
-      try {
-        if (isSync) {
-          workLoopSync();
-        } else {
-          workLoop();
-        }
-        break;
-      } catch (thrownValue) {
-        // 重置在 render 阶段设置的模块级状态。
-        resetContextDependencies();
-        resetHooks();
-
-        const sourceFiber = workInProgress;
-        if (sourceFiber === null || sourceFiber.return === null) {
-          // 工作在 非root 的 fiber 上
-          // 因为没有处理祖先导致致命的错误
-          // root 应该捕获所有未被错误边界捕获的错误。
-
-          prepareFreshStack(root, expirationTime);
-          workPhase = prevWorkPhase;
-          throw thrownValue;
-        }
-
-        const returnFiber = sourceFiber.return;
-        throwException(
-          root,
-          returnFiber,
-          sourceFiber,
-          thrownValue,
-          renderExpirationTime
-        );
-        workInProgress = completeUnitOfWork(sourceFiber);
-      }
-    } while (true);
-
-    executionContext = prevExecutionContext;
-    resetContextDependencies();
-    ReactCurrentDispatcher.current = prevDispatcher;
-
+    // If we have a work-in-progress fiber, it means there's still work to do
+    // in this root.
     if (workInProgress !== null) {
-      // There's still work left over. Return a continuation.
-      stopInterruptedWorkLoopTimer();
-      if (expirationTime !== Sync) {
-        startRequestCallbackTimer();
+      const prevExecutionContext = executionContext;
+      executionContext |= RenderContext;
+      const prevDispatcher = pushDispatcher(root);
+      const prevInteractions = pushInteractions(root);
+      startWorkLoopTimer(workInProgress);
+      do {
+        try {
+          workLoopConcurrent();
+          break;
+        } catch (thrownValue) {
+          handleError(root, thrownValue);
+        }
+      } while (true);
+      resetContextDependencies();
+      executionContext = prevExecutionContext;
+      popDispatcher(prevDispatcher);
+      if (enableSchedulerTracing) {
+        popInteractions(((prevInteractions: any): Set<Interaction>));
       }
-      return renderRoot.bind(null, root, expirationTime);
-    }
-  }
 
-  // We now have a consistent tree. The next step is either to commit it, or, if
-  // something suspended, wait to commit it after a timeout.
-  stopFinishedWorkLoopTimer();
-
-  const isLocked = resolveLocksOnRoot(root, expirationTime);
-  if (isLocked) {
-    // This root has a lock that prevents it from committing. Exit. If we begin
-    // work on the root again, without any intervening updates, it will finish
-    // without doing additional work.
-    return null;
-  }
-
-  // Set this to null to indicate there's no in-progress render.
-  workInProgressRoot = null;
-
-  switch (workInProgressRootExitStatus) {
-    case RootIncomplete: {
-      invariant(false, "Should have a work-in-progress.");
-    }
-    // Flow knows about invariant, so it compains if I add a break statement,
-    // but eslint doesn't know about invariant, so it complains if I do.
-    // eslint-disable-next-line no-fallthrough
-    case RootErrored: {
-      // An error was thrown. First check if there is lower priority work
-      // scheduled on this root.
-      const lastPendingTime = root.lastPendingTime;
-      if (root.lastPendingTime < expirationTime) {
-        // There's lower priority work. Before raising the error, try rendering
-        // at the lower priority to see if it fixes it. Use a continuation to
-        // maintain the existing priority and position in the queue.
-        return renderRoot.bind(null, root, lastPendingTime);
-      }
-      if (!isSync) {
-        // If we're rendering asynchronously, it's possible the error was
-        // caused by tearing due to a mutation during an event. Try rendering
-        // one more time without yiedling to events.
+      if (workInProgressRootExitStatus === RootFatalErrored) {
+        const fatalError = workInProgressRootFatalError;
+        stopInterruptedWorkLoopTimer();
         prepareFreshStack(root, expirationTime);
-        scheduleCallback(
-          ImmediatePriority,
-          renderRoot.bind(null, root, expirationTime)
-        );
-        return null;
+        markRootSuspendedAtTime(root, expirationTime);
+        ensureRootIsScheduled(root);
+        throw fatalError;
       }
-      // If we're already rendering synchronously, commit the root in its
-      // errored state.
-      return commitRoot.bind(null, root, expirationTime);
-    }
-    case RootSuspended: {
-    }
-    case RootCompleted: {
-      // The work completed. Ready to commit.
-      return commitRoot.bind(null, root, expirationTime);
-    }
-    default: {
-      invariant(false, "Unknown root exit status.");
+
+      if (workInProgress !== null) {
+        // There's still work left over. Exit without committing.
+        stopInterruptedWorkLoopTimer();
+      } else {
+        // We now have a consistent tree. The next step is either to commit it,
+        // or, if something suspended, wait to commit it after a timeout.
+        stopFinishedWorkLoopTimer();
+
+        const finishedWork: Fiber = ((root.finishedWork =
+          root.current.alternate): any);
+        root.finishedExpirationTime = expirationTime;
+        finishConcurrentRender(
+          root,
+          finishedWork,
+          workInProgressRootExitStatus,
+          expirationTime
+        );
+      }
+
+      ensureRootIsScheduled(root);
+      if (root.callbackNode === originalCallbackNode) {
+        // The task node scheduled for this root is the same one that's
+        // currently executed. Need to return a continuation.
+        return performConcurrentWorkOnRoot.bind(null, root);
+      }
     }
   }
+  return null;
 }
 ```
 
@@ -558,7 +465,7 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
   const current = unitOfWork.alternate;
 
   let next;
-	
+
   next = beginWork(current, unitOfWork, renderExpirationTime);
 
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
@@ -737,12 +644,12 @@ function commitRootImpl(root, renderPriorityLevel) {
   // Update the first and last pending times on this root. The new first
   // pending time is whatever is left on the root fiber.
   const remainingExpirationTimeBeforeCommit = getRemainingExpirationTime(
-    finishedWork,
+    finishedWork
   );
   markRootFinishedAtTime(
     root,
     expirationTime,
-    remainingExpirationTimeBeforeCommit,
+    remainingExpirationTimeBeforeCommit
   );
 
   if (root === workInProgressRoot) {
@@ -809,7 +716,7 @@ function commitRootImpl(root, renderPriorityLevel) {
       try {
         commitMutationEffects();
       } catch (error) {
-        invariant(nextEffect !== null, "Should be working on an effect.");
+        invariant(nextEffect !== null, 'Should be working on an effect.');
         captureCommitPhaseError(nextEffect, error);
         nextEffect = nextEffect.nextEffect;
       }
@@ -832,7 +739,7 @@ function commitRootImpl(root, renderPriorityLevel) {
       try {
         commitLayoutEffects(root, expirationTime); // 提交所有生命周期
       } catch (error) {
-        invariant(nextEffect !== null, "Should be working on an effect.");
+        invariant(nextEffect !== null, 'Should be working on an effect.');
         captureCommitPhaseError(nextEffect, error);
         nextEffect = nextEffect.nextEffect;
       }
