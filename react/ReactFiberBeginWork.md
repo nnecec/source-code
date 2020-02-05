@@ -2,6 +2,8 @@
 
 ## beginWork
 
+判断 fiber 有无更新，有更新则进行相应的组件更新，无更新则复制节点。
+
 ```javascript
 function beginWork(
   current: Fiber | null,
@@ -10,7 +12,7 @@ function beginWork(
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
-  // 如果 current 不为空
+  // 如果 current 不为空，即不是首次渲染
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
@@ -35,9 +37,6 @@ function beginWork(
             renderExpirationTime !== Never &&
             shouldDeprioritizeSubtree(workInProgress.type, newProps)
           ) {
-            if (enableSchedulerTracing) {
-              markSpawnedWork(Never);
-            }
             // Schedule this fiber to re-render at offscreen priority. Then bailout.
             workInProgress.expirationTime = workInProgress.childExpirationTime = Never;
             return null;
@@ -95,6 +94,7 @@ function beginWork(
               );
               // The primary children do not have pending work with sufficient
               // priority. Bailout.
+              // 跳过该节点及所有子节点的更新
               const child = bailoutOnAlreadyFinishedWork(
                 current,
                 workInProgress,
@@ -179,7 +179,7 @@ function beginWork(
       }
       // bailoutOnAlreadyFinishedWork 根据 childExpirationTime 来判断子树是否需要更新
       // 如果子树也不需要更新则就直接 return null，代表可以直接 complete 了。
-      // 如果有更新还是需要调和子节点。
+      // 如果有更新还是需要调度子节点。
       return bailoutOnAlreadyFinishedWork(
         current,
         workInProgress,
@@ -305,7 +305,7 @@ function beginWork(
             checkPropTypes(
               outerPropTypes,
               resolvedProps, // Resolved for outer only
-              "prop",
+              'prop',
               getComponentName(type),
               getCurrentFiberStackInDev
             );
@@ -416,9 +416,9 @@ function mountIndeterminateComponent(
 
   // 判断是否是 ClassComponent
   if (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    typeof value.render === "function" &&
+    typeof value.render === 'function' &&
     value.$$typeof === undefined
   ) {
     workInProgress.tag = ClassComponent;
@@ -441,7 +441,7 @@ function mountIndeterminateComponent(
       value.state !== null && value.state !== undefined ? value.state : null;
 
     const getDerivedStateFromProps = Component.getDerivedStateFromProps;
-    if (typeof getDerivedStateFromProps === "function") {
+    if (typeof getDerivedStateFromProps === 'function') {
       applyDerivedStateFromProps(
         workInProgress,
         Component,
@@ -480,7 +480,7 @@ export function reconcileChildren(
   current: Fiber | null,
   workInProgress: Fiber,
   nextChildren: any,
-  renderExpirationTime: ExpirationTime,
+  renderExpirationTime: ExpirationTime
 ) {
   if (current === null) {
     // If this is a fresh new component that hasn't been rendered yet, we
@@ -491,7 +491,7 @@ export function reconcileChildren(
       workInProgress,
       null,
       nextChildren,
-      renderExpirationTime,
+      renderExpirationTime
     );
   } else {
     // If the current child is the same as the work in progress, it means that
@@ -504,7 +504,7 @@ export function reconcileChildren(
       workInProgress,
       current.child,
       nextChildren,
-      renderExpirationTime,
+      renderExpirationTime
     );
   }
 }

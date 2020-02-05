@@ -66,9 +66,9 @@
 
   调用`performUnitOfWork`完成工作：
 
-  1. 执行 beginWork 进行节点操作
-  2. 创建子节点 next，如果有就返回
-  3. 如果 next 不存在，说明当前节点向下遍历子节点已经到底了，说明这个子树侧枝已经遍历完，执行 `completeUnitOfWork`
+  1. 执行 `beginWork` 进行节点操作
+  2. 创建子节点`next`，如果有就返回
+  3. 如果`next`不存在，说明当前节点向下遍历子节点已经到底了，说明这个子树侧枝已经遍历完，执行 `completeUnitOfWork`
   4. `completeUnitOfWork`处理一些 effect tag，一直往上返回直到 root 节点或者在某一个节点发现有 sibling 兄弟节点为止。如果到了 root 那么返回也是 null，代表整棵树的遍历已经结束了，可以 commit 了，如果遇到兄弟节点就返回该节点，因为这个节点可能也会存在子节点，需要通过 `beginWork`进行操作。
 
 ---

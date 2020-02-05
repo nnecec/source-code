@@ -91,7 +91,7 @@ export function computeExpirationForFiber(currentTime, fiber, suspenseConfig) {
 
 ```javascript
 export function scheduleUpdateOnFiber(fiber, expirationTime) {
-  // checkForNestedUpdates(); // 检测队列中的 Update 是否超出限制
+  // checkForNestedUpdates(); // 检测队列中的 Update 是否超出限制，即检查是否有死循环更新
 
   // 遍历 fiber 的父节点上 更新 expirationTime 和 childExpirationTime
   const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
@@ -455,7 +455,7 @@ function commitRoot(root) {
 
 ## performUnitOfWork
 
-完成 fiber 上需要完成的工作。
+从上至下遍历、操作节点，执行`beginWork`更新组件，返回 next。
 
 ```javascript
 function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
@@ -469,8 +469,9 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
   next = beginWork(current, unitOfWork, renderExpirationTime);
 
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
+
   if (next === null) {
-    // 如果没有新工作，则标记 complete
+    // 执行完成后，通过 completeUnitOfWork 从下到上根据 effectTag 进行一些处理
     next = completeUnitOfWork(unitOfWork);
   }
 
