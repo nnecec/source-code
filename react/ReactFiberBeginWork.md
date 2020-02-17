@@ -14,17 +14,16 @@ function beginWork(
 
   // 如果 current 不为空，即不是首次渲染
   if (current !== null) {
-    const oldProps = current.memoizedProps;
-    const newProps = workInProgress.pendingProps;
+    const oldProps = current.memoizedProps; // 上一次渲染完成后的 props
+    const newProps = workInProgress.pendingProps; // 当前更新中的 props
 
     // 新旧 props 不相等
-    // hasLegacyContextChanged 判断是否使用老版本 context
-    // 以上两个条件满足则说明 fiber 发生改变，需要更新
+    // hasLegacyContextChanged 判断是否使用老版本 context 且发生了变化
+    // 以上两个或条件满足其一则说明 fiber 发生改变，需要更新
     if (oldProps !== newProps || hasLegacyContextChanged()) {
-      didReceiveUpdate = true;
-    } else if (updateExpirationTime < renderExpirationTime) {
+      didReceiveUpdate = true; // 接收到需要更新 update
+    } else if (updateExpirationTime < renderExpirationTime) { // 有更新，但优先级不高，本次渲染不需要执行
       didReceiveUpdate = false;
-      // fiber 没有 pending 中的工作，但仍需处理一部分特殊情况
       switch (workInProgress.tag) {
         case HostRoot:
           pushHostRootContext(workInProgress);
@@ -193,6 +192,7 @@ function beginWork(
   // Before entering the begin phase, clear the expiration time.
   workInProgress.expirationTime = NoWork;
 
+  // 根据节点类型进行更新
   switch (workInProgress.tag) {
     case IndeterminateComponent: {
       return mountIndeterminateComponent(

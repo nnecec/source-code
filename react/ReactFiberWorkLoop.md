@@ -459,15 +459,14 @@ function commitRoot(root) {
 
 ```javascript
 function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
-  // The current, flushed, state of this fiber is the alternate. Ideally
-  // nothing should rely on this, but relying on it here means that we don't
-  // need an additional field on the work in progress.
+  // 获取当前节点 current
   const current = unitOfWork.alternate;
 
   let next;
 
   next = beginWork(current, unitOfWork, renderExpirationTime);
 
+  // 将 unitOfWork 上待更新的 props 替换成正在用的 props
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
 
   if (next === null) {
