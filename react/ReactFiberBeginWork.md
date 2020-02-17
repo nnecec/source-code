@@ -22,7 +22,8 @@ function beginWork(
     // 以上两个或条件满足其一则说明 fiber 发生改变，需要更新
     if (oldProps !== newProps || hasLegacyContextChanged()) {
       didReceiveUpdate = true; // 接收到需要更新 update
-    } else if (updateExpirationTime < renderExpirationTime) { // 有更新，但优先级不高，本次渲染不需要执行
+    } else if (updateExpirationTime < renderExpirationTime) {
+      // 有更新，但优先级不高，本次渲染不需要执行
       didReceiveUpdate = false;
       switch (workInProgress.tag) {
         case HostRoot:
