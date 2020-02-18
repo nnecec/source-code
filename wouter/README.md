@@ -21,15 +21,13 @@
       <Route path="/about">
         <About />
       </Route>
-      <Route path="/dashboard">
-        <Dashboard />
-      </Route>
+      <Route path="/dashboard" component={<Dashboard />} />
     </Switch>
   </div>
 </Router>
 ```
 
-看一下 wouter 中 Router 的创建方法：
+看一下 Router 的创建方法：
 
 ```javascript
 const RouterCtx = createContext({});
@@ -52,7 +50,7 @@ Router 中也需要记录各种信息，如 `base`, `匹配方法`, `获取当�
 
 ```javascript
 const buildRouter = ({
-  hook = locationHook, // 返回 [当前路径, 跳转方法]
+  hook = locationHook, // 返回 [当前路径, 跳转方法], 跳转方法类似 history
   base = '', // 路由的 base 属性
   matcher = makeMatcher() // 匹配器，返回 [路由是否相等, /:params 路由中的参数]
 } = {}) => ({ hook, base, matcher });
@@ -62,8 +60,8 @@ const buildRouter = ({
 
 ## 2: 在 Router 内配置路由
 
-在 1 中可以看到在 Switch 中配置了 Route 达到路由配置的目的。
-x
+在 1 中可以看到通过 Switch 和 Route 达到路由配置的目的。
+
 先看一下 Route 的实现：
 
 ```javascript
@@ -111,7 +109,7 @@ export const Switch = ({ children, location }) => {
       // 路由匹配的会被返回渲染
       (match = element.props.path
         ? matcher(element.props.path, location || originalLocation)
-        : [true, {}])[0]
+        : [true, {}])[0] // 如果没有 path 则默认返回 true 显示
     )
       return cloneElement(element, { match });
   }
@@ -133,7 +131,7 @@ export const Link = props => {
   const [, navigate] = useLocation();
   const { base } = useRouter();
 
-  const href = props.href || props.to;
+  const href = props.href || props.to; // 跳转的目标链接
   const { children, onClick } = props;
 
   const handleClick = useCallback(

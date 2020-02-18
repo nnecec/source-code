@@ -1,3 +1,7 @@
+# React Flow Chart
+
+> please view in typora
+
 ```flow
 st=>start: Render
 e=>end:>http://www.google.com
@@ -14,4 +18,3 @@ cond(no)->para
 para(path1, bottom)->sub1(right)->op1
 para(path2, top)->op1
 ```
-

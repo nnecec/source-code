@@ -34,8 +34,23 @@ const rxForSegment = (repeat, optional, prefix) => {
   return capture + (optional ? "?" : "");
 };
 
+// 
+// 返回成 
+/**
+ * 将路由配置 如 '/shop/:id'
+ * 返回成
+ * 
+ * {
+ *    keys: {
+ *      name: 'id'
+ *    },
+ *    regexp: /.../
+ * }
+ * 
+ * @param {*} pattern 
+ */
 const pathToRegexp = pattern => {
-  const groupRx = /:([A-Za-z0-9_]+)([?+*]?)/g;
+  const groupRx = /:([A-Za-z0-9_]+)([?+*]?)/g; // 匹配类似 /:id? 路由
 
   let match = null,
     lastIndex = 0,
@@ -43,7 +58,7 @@ const pathToRegexp = pattern => {
     result = "";
 
   while ((match = groupRx.exec(pattern)) !== null) {
-    const [_, segment, mod] = match;
+    const [_, segment, mod] = match; // [:id, id, ?]
 
     // :foo  [1]      (  )
     // :foo? [0 - 1]  ( o)

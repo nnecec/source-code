@@ -1,5 +1,7 @@
 # source code
 
+Read open source code.
+
 ## JavaScript
 
 - [x] promise

@@ -2,7 +2,9 @@
 
 ## beginWork
 
-判断 fiber 有无更新，有更新则进行相应的组件更新，无更新则复制节点。
+- 判断 fiber 有无更新
+- 根据`expirationTime`判断能否跳过本次更新
+- 根据节点 tag 处理不同的更新逻辑
 
 ```javascript
 function beginWork(
@@ -10,6 +12,7 @@ function beginWork(
   workInProgress: Fiber,
   renderExpirationTime: ExpirationTime
 ): Fiber | null {
+  // 如果 workInProgress 是 RootFiber ，那么只有在 ReactDOM.render 的时候才会有值，其他情况下，是没有值的，因为 setState 更新的时候 RootFiber 是没有 expirationTime 的
   const updateExpirationTime = workInProgress.expirationTime;
 
   // 如果 current 不为空，即不是首次渲染
@@ -25,6 +28,8 @@ function beginWork(
     } else if (updateExpirationTime < renderExpirationTime) {
       // 有更新，但优先级不高，本次渲染不需要执行
       didReceiveUpdate = false;
+
+      // 需要将 workInProgress 记录到堆栈中
       switch (workInProgress.tag) {
         case HostRoot:
           pushHostRootContext(workInProgress);
@@ -92,8 +97,7 @@ function beginWork(
                 workInProgress,
                 setDefaultShallowSuspenseContext(suspenseStackCursor.current)
               );
-              // The primary children do not have pending work with sufficient
-              // priority. Bailout.
+
               // 跳过该节点及所有子节点的更新
               const child = bailoutOnAlreadyFinishedWork(
                 current,
@@ -177,9 +181,8 @@ function beginWork(
           }
           break;
       }
-      // bailoutOnAlreadyFinishedWork 根据 childExpirationTime 来判断子树是否需要更新
-      // 如果子树也不需要更新则就直接 return null，代表可以直接 complete 了。
-      // 如果有更新还是需要调度子节点。
+
+      // 跳过该节点及所有子节点的更新
       return bailoutOnAlreadyFinishedWork(
         current,
         workInProgress,
@@ -372,9 +375,46 @@ function beginWork(
 }
 ```
 
+## bailoutOnAlreadyFinishedWork
+
+跳过当前节点以及子节点的更新
+
+```javascript
+function bailoutOnAlreadyFinishedWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderExpirationTime: ExpirationTime
+): Fiber | null {
+  if (current !== null) {
+    // Reuse previous dependencies
+    workInProgress.dependencies = current.dependencies;
+  }
+
+  const updateExpirationTime = workInProgress.expirationTime;
+  if (updateExpirationTime !== NoWork) {
+    markUnprocessedUpdateTime(updateExpirationTime);
+  }
+
+  // Check if the children have any pending work.
+  const childExpirationTime = workInProgress.childExpirationTime;
+  if (childExpirationTime < renderExpirationTime) {
+    // The children don't have any work either. We can skip them.
+    // TODO: Once we add back resuming, we should check if the children are
+    // a work-in-progress set. If so, we need to transfer their effects.
+    return null;
+  } else {
+    // This fiber doesn't have work, but its subtree does. Clone the child
+    // fibers and continue.
+    cloneChildFibers(current, workInProgress);
+    return workInProgress.child;
+  }
+}
+```
+
 ## IndeterminateComponent
 
 判断\_current 是否存在然后做的操作主要是因为：IndeterminateComponent 只有在组件被第一次渲染的情况下才会出现，在经过第一次渲染之后，就会更新组件的类型，也就是 Fiber.tag。如果出现了\_current 存在的情况，那么可能是因为渲染时有 Suspend 的情况。FunctionalComponent 在第一次创建 Fiber 的时候就是 IndeterminateComponent 状态。
+
 根据 value 判断是 ClassComponent 还是 FunctionComponent，调用不同的方法构建实例。
 
 ```javascript
