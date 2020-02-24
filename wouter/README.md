@@ -58,7 +58,7 @@ const buildRouter = ({
 
 > 在 react-router 中，Router 的 Provider 存储的是 `history`, `location`, `match`
 
-## 2: 在 Router 内配置路由
+## 2: 配置路由
 
 在 1 中可以看到通过 Switch 和 Route 达到路由配置的目的。
 
@@ -192,4 +192,13 @@ export default function locationHook =  ({ base = "" } = {}) => {
 
     return () => events.map(e => removeEventListener(e, checkForUpdates));
   }, []);
+
+  const navigate = useCallback(
+    (to, replace) =>
+      history[replace ? "replaceState" : "pushState"](0, 0, base + to),
+    []
+  );
+
+  return [path, navigate];
+}
 ```
