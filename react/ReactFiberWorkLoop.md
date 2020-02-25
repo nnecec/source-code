@@ -217,59 +217,6 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
 }
 ```
 
-## scheduleCallbackForRoot
-
-确保每个 root 仅有一个 callback 在进行，避免过多的回调。
-
-工作原理是将回调节点和过期时间存储在 root 上。当一个新的回调进来, 它比较到期时间, 以确定它是否应取消上一个。
-
-它还依赖于提交根调度回调呈现下一个级别, 因为这意味着我们不需要一个每个到期时间单独回调。
-
-```javascript
-function scheduleCallbackForRoot(root, priorityLevel, expirationTime) {
-  const existingCallbackExpirationTime = root.callbackExpirationTime;
-  if (existingCallbackExpirationTime < expirationTime) {
-    // 新的 callback 比当前 fiber 的优先级更高
-    const existingCallbackNode = root.callbackNode;
-    if (existingCallbackNode !== null) {
-      cancelCallback(existingCallbackNode);
-    }
-    root.callbackExpirationTime = expirationTime; // 更新
-
-    if (expirationTime === Sync) {
-      // 同步的情况
-      // callback 会在特殊的内部队列中
-      root.callbackNode = scheduleSyncCallback(
-        runRootCallback.bind(
-          null,
-          root,
-          renderRoot.bind(null, root, expirationTime)
-        )
-      );
-    } else {
-      // 异步情况
-      let options = null;
-      if (expirationTime !== Never) {
-        let timeout = expirationTimeToMs(expirationTime) - now();
-        options = { timeout };
-      }
-
-      root.callbackNode = scheduleCallback(
-        priorityLevel,
-        runRootCallback.bind(
-          null,
-          root,
-          renderRoot.bind(null, root, expirationTime)
-        ),
-        options
-      );
-    }
-  }
-  // 将新的 root 优先级 与当前交互关联
-  schedulePendingInteraction(root, expirationTime);
-}
-```
-
 ## performSyncWorkOnRoot
 
 ```javascript
@@ -497,19 +444,9 @@ function completeUnitOfWork(unitOfWork: Fiber): Fiber | null {
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
       setCurrentDebugFiberInDEV(workInProgress);
       let next;
-      if (
-        !enableProfilerTimer ||
-        (workInProgress.mode & ProfileMode) === NoMode
-      ) {
-        next = completeWork(current, workInProgress, renderExpirationTime);
-      } else {
-        startProfilerTimer(workInProgress);
-        next = completeWork(current, workInProgress, renderExpirationTime);
-        // Update render duration assuming we didn't error.
-        stopProfilerTimerIfRunningAndRecordDelta(workInProgress, false);
-      }
+      next = completeWork(current, workInProgress, renderExpirationTime);
       stopWorkTimer(workInProgress);
-      resetCurrentDebugFiberInDEV();
+      // resetCurrentDebugFiberInDEV();
       resetChildExpirationTime(workInProgress);
 
       if (next !== null) {
@@ -562,23 +499,6 @@ function completeUnitOfWork(unitOfWork: Fiber): Fiber | null {
       const next = unwindWork(workInProgress, renderExpirationTime);
 
       // Because this fiber did not complete, don't reset its expiration time.
-
-      if (
-        enableProfilerTimer &&
-        (workInProgress.mode & ProfileMode) !== NoMode
-      ) {
-        // Record the render duration for the fiber that errored.
-        stopProfilerTimerIfRunningAndRecordDelta(workInProgress, false);
-
-        // Include the time spent working on failed children before continuing.
-        let actualDuration = workInProgress.actualDuration;
-        let child = workInProgress.child;
-        while (child !== null) {
-          actualDuration += child.actualDuration;
-          child = child.sibling;
-        }
-        workInProgress.actualDuration = actualDuration;
-      }
 
       if (next !== null) {
         // If completing this work spawned new work, do that next. We'll come

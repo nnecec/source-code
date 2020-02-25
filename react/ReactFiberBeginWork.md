@@ -514,7 +514,7 @@ function mountIndeterminateComponent(
 
 ## reconcileChildren
 
-diff 算法的入口，构建或更新组件。首次调用以及更新调用的区别在于，初始化方法的`shouldTrackSideEffects`不同。该标记用于判断是否要修改`effectTag`，初始化构建时不需要。
+diff 算法的入口，构建或更新组件。首次调用以及更新调用的区别在于，初始化方法的`shouldTrackSideEffects`不同。
 
 ```javascript
 export function reconcileChildren(
