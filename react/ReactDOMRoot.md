@@ -36,10 +36,11 @@ export const ConcurrentRoot = 2;
 
 ```javascript
 function createRootImpl(container, tag, options) {
-  // Tag is either LegacyRoot or Concurrent Root
+  // 获取 服务端渲染 标记
   const hydrate = options != null && options.hydrate === true;
   const hydrationCallbacks =
     (options != null && options.hydrationOptions) || null;
+  // 创建 root 实例
   const root = createContainer(container, tag, hydrate, hydrationCallbacks);
   markContainerAsRoot(root.current, container);
   if (hydrate && tag !== LegacyRoot) {
@@ -58,7 +59,7 @@ function createRootImpl(container, tag, options) {
 prototype 上定义了 4 个方法。`render`方法通过调用`updateContainer`渲染接受到的组件
 
 ```javascript
-ReactDOMRoot.prototype.render = ReactDOMBlockingRoot.prototype.render = function(
+ReactDOMRoot.prototype.render = ReactDOMBlockingRoot.prototype.render = function (
   children,
   callback
 ) {
@@ -66,7 +67,7 @@ ReactDOMRoot.prototype.render = ReactDOMBlockingRoot.prototype.render = function
   updateContainer(children, root, null, null);
 };
 
-ReactDOMRoot.prototype.unmount = ReactDOMBlockingRoot.prototype.unmount = function(
+ReactDOMRoot.prototype.unmount = ReactDOMBlockingRoot.prototype.unmount = function (
   callback
 ) {
   const root = this._internalRoot;

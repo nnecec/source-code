@@ -30,15 +30,13 @@
 
 `legacyCreateRootFromDOMContainer`首先会清空客户端渲染情况下的`container`，然后返回`ReactDOMRoot`实例。
 
-`ReactDOMRoot`实例内部将`_internalRoot`指向了调用`createContainer`的返回值，`createContainer`再调用`createFiberRoot`，构建`FiberRoot`实例。
-
 ---
 
 > [createFiberRoot](../ReactFiberRoot.md)
 
-通过`FiberRootNode`构建实例，赋值给局部变量`root`并将该值返回。
+通过`new FiberRootNode(containerInfo, tag, hydrate)`构建实例并返回。
 
-`root.current`指向`createHostRootFiber`构建的`root`的 fiber，该 fiber 的 stateNode，即`root.current.stateNode`又翻过来指向了`root`，形成了循环的指向。
+将`root.current`指向`createHostRootFiber`构建的`root`的 fiber，该 fiber 的 stateNode，即`root.current.stateNode`又反过来指向了`root`，形成了 root 的 Fiber 结构。
 
 `createHostRootFiber`会根据 tag 的类型，来设定渲染的模式，如 `ConcurrentMode`, `BlockingMode`, `StrictMode`, `NoMode`。
 
@@ -56,6 +54,12 @@ current & 0b0001; // 1
 current & 0b0010; // 2
 current & 0b0100; // 0
 ```
+
+---
+
+> [createFiber](../ReactFiber.md)
+
+创建 fiber 通过`createFiber`，实例化了`new FiberNode(tag, pendingProps, key, mode)`
 
 ---
 

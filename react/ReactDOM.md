@@ -5,27 +5,25 @@
 react-dom 的`render`方法是目前渲染组件的方法，服务端的渲染方法将由`hydrate`替代。可以看到两者仅有一个参数的区别。
 
 ```javascript
-const ReactDOM = {
-  hydrate(element, container, callback) {
-    return legacyRenderSubtreeIntoContainer(
-      null,
-      element,
-      container,
-      true,
-      callback
-    );
-  },
+function hydrate(element, container, callback) {
+  return legacyRenderSubtreeIntoContainer(
+    null,
+    element,
+    container,
+    true,
+    callback
+  );
+}
 
-  render(element, container, callback) {
-    return legacyRenderSubtreeIntoContainer(
-      null,
-      element,
-      container,
-      false,
-      callback
-    );
-  }
-};
+function render(element, container, callback) {
+  return legacyRenderSubtreeIntoContainer(
+    null,
+    element,
+    container,
+    false,
+    callback
+  );
+}
 ```
 
 ## legacyRenderSubtreeIntoContainer
@@ -63,8 +61,9 @@ function legacyRenderSubtreeIntoContainer(
   callback, // 完成后的回调函数
 ) {
   let root = container._reactRootContainer;
-  if (!root) { // 如果没有 root 则说明是第一次构建
-  // 通过 legacyCreateRootFromDOMContainer 初次构建 ReactRoot 并缓存到 _reactRootContainer 属性上
+  if (!root) {
+    // 如果没有 root 则说明是第一次构建
+    // 通过 legacyCreateRootFromDOMContainer 初次构建 ReactRoot 并缓存到 _reactRootContainer 属性上
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
@@ -73,6 +72,7 @@ function legacyRenderSubtreeIntoContainer(
     if (typeof callback === 'function') {
       const originalCallback = callback;
       callback = function() {
+        // 根据 fiberRoot 获取公共 Root 实例
         const instance = getPublicRootInstance(root._internalRoot);
         originalCallback.call(instance);
       };
@@ -90,7 +90,7 @@ function legacyRenderSubtreeIntoContainer(
         originalCallback.call(instance);
       };
     }
-    // Update
+    // 更新
     updateContainer(children, fiberRoot, parentComponent, callback);
   }
   return getPublicRootInstance(root._internalRoot); // 返回根容器 Fiber 实例
@@ -101,12 +101,13 @@ function legacyRenderSubtreeIntoContainer(
 ```javascript
 function legacyCreateRootFromDOMContainer(container, forceHydrate) {
   const shouldHydrate =
-    forceHydrate || shouldHydrateDueToLegacyHeuristic(container); // 初始化 shouldHydrate
+    forceHydrate || shouldHydrateDueToLegacyHeuristic(container); // 初始化 shouldHydrate，用于判断是否是服务端渲染
 
   // 如果是客户端渲染，则将 container 的 child 清空
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+    // React 认为这些节点是不需要复用的，循环删除container的子节点
     while ((rootSibling = container.lastChild)) {
       container.removeChild(rootSibling);
     }
@@ -117,7 +118,7 @@ function legacyCreateRootFromDOMContainer(container, forceHydrate) {
     container,
     shouldHydrate
       ? {
-          hydrate: true
+          hydrate: true,
         }
       : undefined
   );

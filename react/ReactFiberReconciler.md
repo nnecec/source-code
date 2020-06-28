@@ -47,14 +47,9 @@ export function updateContainer(
   callback
 ) {
   const current = container.current; // Fiber 对象
-  const currentTime = requestCurrentTimeForUpdate(); // 获取当前时间
+  const eventTime = requestEventTime(); // 获取当前时间
   const suspenseConfig = requestCurrentSuspenseConfig();
-  // 任务过期时间
-  const expirationTime = computeExpirationForFiber(
-    currentTime,
-    current,
-    suspenseConfig
-  );
+  const lane = requestUpdateLane(current, suspenseConfig);
 
   const context = getContextForSubtree(parentComponent);
   if (container.context === null) {
@@ -63,7 +58,7 @@ export function updateContainer(
     container.pendingContext = context;
   }
 
-  const update = createUpdate(expirationTime, suspenseConfig);
+  const update = createUpdate(eventTime, lane, suspenseConfig);
   // Caution: React DevTools currently depends on this property
   // being called "element".
   update.payload = { element }; // element 是需要渲染的 JSX，挂载在 update.payload 上，赋予了时间的先后顺序。

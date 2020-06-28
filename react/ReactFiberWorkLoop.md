@@ -1,87 +1,96 @@
 # ReactFiberWorkLoop
 
-## requestCurrentTimeForUpdate
+## requestEventTime
 
 ```javascript
 let currentEventTime = NoWork;
 
-export function requestCurrentTimeForUpdate() {
+export function requestEventTime() {
   // 在 RenderPhase / CommitPhase 重新生成 currentTime
   if ((executionContext & (RenderContext | CommitContext)) !== NoContext) {
     // `now()`可以理解为`performance.now()`(https://developer.mozilla.org/zh-CN/docs/Web/API/Performance/now)
-    return msToExpirationTime(now());
+    return now();
   }
   // 其余 Phase 使用缓存的时间 提高性能
   if (currentEventTime !== NoWork) {
     return currentEventTime;
   }
   // 第一次进入 React 应用，首次生成时间
-  currentEventTime = msToExpirationTime(now());
+  currentEventTime = now();
   return currentEventTime;
 }
 ```
 
-## computeExpirationForFiber
+## requestUpdateLane
 
-计算 expirationTime，数字越大优先级越高。
+获取【更新模式】
 
 ```javascript
-export function computeExpirationForFiber(currentTime, fiber, suspenseConfig) {
+export function requestUpdateLane(
+  fiber: Fiber,
+  suspenseConfig: SuspenseConfig | null
+): Lane {
+  // Special cases
   const mode = fiber.mode;
-  // 通过二进制的 | ，添加了 某个 mode，通过 & 判断是否被加上过该 mode
   if ((mode & BlockingMode) === NoMode) {
-    return Sync; // 1073741823
+    return (SyncLane: Lane);
+  } else if ((mode & ConcurrentMode) === NoMode) {
+    return getCurrentPriorityLevel() === ImmediateSchedulerPriority
+      ? (SyncLane: Lane)
+      : (SyncBatchedLane: Lane);
+  } else if (
+    !deferRenderPhaseUpdateToNextBatch &&
+    (executionContext & RenderContext) !== NoContext &&
+    workInProgressRootRenderLanes !== NoLanes
+  ) {
+    return pickArbitraryLane(workInProgressRootRenderLanes);
   }
 
-  const priorityLevel = getCurrentPriorityLevel(); // 按优先级高向低排，依次返回 99 -> 95
-  if ((mode & ConcurrentMode) === NoMode) {
-    return priorityLevel === ImmediatePriority ? Sync : Batched;
+  if (currentEventWipLanes === NoLanes) {
+    currentEventWipLanes = workInProgressRootIncludedLanes;
   }
 
-  if ((executionContext & RenderContext) !== NoContext) {
-    // Use whatever time we're already rendering
-    return renderExpirationTime;
-  }
-
-  // 根据优先级计算过期时间
-  let expirationTime;
+  let lane;
   if (suspenseConfig !== null) {
-    // FIXME:当前为 null
-    // Compute an expiration time based on the Suspense timeout.
-    expirationTime = computeSuspenseExpiration(
-      currentTime,
-      suspenseConfig.timeoutMs | 0 || LOW_PRIORITY_EXPIRATION
+    // Use the size of the timeout as a heuristic to prioritize shorter
+    // transitions over longer ones.
+    // TODO: This will coerce numbers larger than 31 bits to 0.
+    const timeoutMs = suspenseConfig.timeoutMs;
+    const transitionLanePriority =
+      timeoutMs === undefined || (timeoutMs | 0) < 10000
+        ? TransitionShortLanePriority
+        : TransitionLongLanePriority;
+
+    if (currentEventPendingLanes !== NoLanes) {
+      currentEventPendingLanes =
+        mostRecentlyUpdatedRoot !== null
+          ? mostRecentlyUpdatedRoot.pendingLanes
+          : NoLanes;
+    }
+
+    lane = findTransitionLane(
+      transitionLanePriority,
+      currentEventWipLanes,
+      currentEventPendingLanes
     );
   } else {
-    switch (
-      priorityLevel // 根据优先级 返回不同的过期时间
+    // TODO: If we're not inside `runWithPriority`, this returns the priority
+    // of the currently running task. That's probably not what we want.
+    const schedulerPriority = getCurrentPriorityLevel();
+
+    if (
+      // TODO: Temporary. We're removing the concept of discrete updates.
+      (executionContext & DiscreteEventContext) !== NoContext &&
+      schedulerPriority === UserBlockingSchedulerPriority
     ) {
-      case ImmediatePriority: // 立即执行
-        expirationTime = Sync;
-        break;
-      case UserBlockingPriority: // 用户操作
-        expirationTime = computeInteractiveExpiration(currentTime);
-        break;
-      case NormalPriority: // 低优先级
-      case LowPriority:
-        expirationTime = computeAsyncExpiration(currentTime);
-        break;
-      case IdlePriority:
-        expirationTime = Never; // 1
-        break;
-      default:
-      // invariant(false, 'Expected a valid priority level');
+      lane = findUpdateLane(InputDiscreteLanePriority, currentEventWipLanes);
+    } else {
+      const lanePriority = schedulerPriorityToLanePriority(schedulerPriority);
+      lane = findUpdateLane(lanePriority, currentEventWipLanes);
     }
   }
 
-  // If we're in the middle of rendering a tree, do not update at the same
-  // expiration time that is already rendering.
-  if (workInProgressRoot !== null && expirationTime === renderExpirationTime) {
-    // This is a trick to move this update into a separate batch
-    expirationTime -= 1;
-  }
-
-  return expirationTime; // 返回 1 到 MAX 的值
+  return lane;
 }
 ```
 
@@ -432,6 +441,8 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
 function completeUnitOfWork(unitOfWork: Fiber): Fiber | null {
   // Attempt to complete the current unit of work, then move to the next
   // sibling. If there are no more siblings, return to the parent fiber.
+
+  // 先向兄弟节点遍历，如果到头之后再向父节点遍历，直到 root 节点
   workInProgress = unitOfWork;
   do {
     // The current, flushed, state of this fiber is the alternate. Ideally
@@ -441,19 +452,25 @@ function completeUnitOfWork(unitOfWork: Fiber): Fiber | null {
     const returnFiber = workInProgress.return;
 
     // Check if the work completed or if something threw.
+    // 判断节点操作是否完成，或是否报错
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
-      setCurrentDebugFiberInDEV(workInProgress);
+      // setCurrentDebugFiberInDEV(workInProgress);
       let next;
+      // 完成节点更新
       next = completeWork(current, workInProgress, renderExpirationTime);
       stopWorkTimer(workInProgress);
       // resetCurrentDebugFiberInDEV();
+      // 更新节点的 work 时长和子节点的 expirationTime
       resetChildExpirationTime(workInProgress);
 
+      // 如果 next 存在，则代表返回了新的 work
+      // 返回 next，以便执行新 work
       if (next !== null) {
         // Completing this fiber spawned new work. Work on that next.
         return next;
       }
 
+      // 如果 父节点存在，且 effectTag 没有被赋值的话
       if (
         returnFiber !== null &&
         // Do not append effects to parents if a sibling failed to complete

@@ -10,19 +10,22 @@ export const ReplaceState = 1;
 export const ForceUpdate = 2;
 export const CaptureUpdate = 3;
 
-export function createUpdate(expirationTime) {
-  let update = {
-    expirationTime,
+export function createUpdate(
+  eventTime: number,
+  lane: Lane,
+  suspenseConfig: null | SuspenseConfig
+): Update<*> {
+  const update: Update<*> = {
+    eventTime,
+    lane,
     suspenseConfig,
 
     tag: UpdateState,
     payload: null,
     callback: null,
 
-    next: null
+    next: null,
   };
-  update.next = update;
-
   return update;
 }
 ```
@@ -51,7 +54,7 @@ export function enqueueUpdate(fiber, update) {
     return;
   }
 
-  const sharedQueue = updateQueue.shared;
+  const sharedQueue: SharedQueue<State> = (updateQueue: any).shared;
   const pending = sharedQueue.pending;
   if (pending === null) {
     // This is the first update. Create a circular list.
