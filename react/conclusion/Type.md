@@ -46,7 +46,7 @@ type FiberRoot = {
   pingTime: ExpirationTime, // 暂停的组件 再次渲染的时间
   interactionThreadID: number,
   memoizedInteractions: Set<Interaction>,
-  pendingInteractionMap: PendingInteractionMap
+  pendingInteractionMap: PendingInteractionMap,
 };
 ```
 
@@ -67,6 +67,7 @@ export type Fiber = {|
   // minimize the number of objects created during the initial render.
 
   // Tag identifying the type of fiber.
+
   // FiberNode 组件类型 -> ReactWorkTags.js
   tag: WorkTag,
 
@@ -83,6 +84,10 @@ export type Fiber = {|
 
   // The local state associated with this fiber.
   // Node储存空间，通过 stateNode 绑定如 FiberNode 对应的 Dom、FiberRoot、ReactComponent 实例
+  // 比如，DOM组件对应DOM节点实例
+  // ClassComponent对应Class实例
+  // FunctionComponent没有实例，所以stateNode值为null
+  // state更新了或props更新了均会更新到stateNode上
   stateNode: any,
 
   // Conceptual aliases
@@ -95,7 +100,7 @@ export type Fiber = {|
   // This is effectively the parent, but there can be multiple parents (two)
   // so this is only the parent of the thing we're currently processing.
   // It is conceptually the same as the return address of a stack frame.
-  // 指向父 FiberNode
+  // 指向该对象在Fiber节点树中的`parent`，用来在处理完该节点后返回
   return: Fiber | null,
 
   // Singly Linked List Tree Structure.
@@ -110,9 +115,9 @@ export type Fiber = {|
   ref: null | (((handle: mixed) => void) & { _stringRef: ?string }) | RefObject,
 
   // Input is the data coming into process this fiber. Arguments. Props.
-  // 即将到来的新 props
+  // 即将到来的新 props，即 nextProps
   pendingProps: any, // This type will be more specific once we overload the tag.
-  // 上一次渲染完成后的 props
+  // 上一次渲染完成后的 props，即 props
   memoizedProps: any, // The props used to create the output.
 
   // A queue of state updates and callbacks.
@@ -124,7 +129,7 @@ export type Fiber = {|
   memoizedState: any,
 
   // Dependencies (contexts, events) for this fiber, if it has any
-  //
+  // 一个列表，存储该Fiber依赖的contexts，events
   dependencies: Dependencies | null,
 
   // Bitfield that describes properties about the fiber and its subtree. E.g.
@@ -135,6 +140,14 @@ export type Fiber = {|
   // before its child fibers are created.
   // 用来描述当前Fiber和他子树的`Bitfield`
   // 共存的模式表示这个子树是否默认是异步渲染的, Fiber被创建的时候他会继承父Fiber, 其他的标识也可以在创建的时候被设置, 但是在创建之后不应该再被修改，特别是他的子Fiber创建之前
+
+  //mode有 ConcurrentMode 和 StrictMode
+
+  //用来描述当前Fiber和其他子树的Bitfield
+  //共存的模式表示这个子树是否默认是 异步渲染的
+
+  //Fiber刚被创建时，会继承父Fiber
+  //其他标识也可以在创建的时候被设置，但是创建之后不该被修改，特别是它的子Fiber创建之前
   mode: TypeOfMode, // constant -> TypeOfMode
 
   // 记录Side Effect
@@ -151,14 +164,8 @@ export type Fiber = {|
   firstEffect: Fiber | null,
   lastEffect: Fiber | null,
 
-  // Represents a time in the future by which this work should be completed.
-  // Does not include work found in its subtree.
-  // 代表任务在未来的哪个时间点应该被完成, 不包括他的子树产生的任务
-  expirationTime: ExpirationTime,
-
-  // This is used to quickly determine if a subtree has no pending changes.
-  // 快速确定子树中是否有不在等待状态的变化
-  childExpirationTime: ExpirationTime,
+  lanes: Lanes,
+  childLanes: Lanes,
 
   // This is a pooled version of a Fiber. Every fiber that gets updated will
   // eventually have a pair. There are cases when we can clean up pairs to save
@@ -200,7 +207,7 @@ export type Fiber = {|
   _debugNeedsRemount?: boolean,
 
   // Used to verify that the order of hooks does not change between renders.
-  _debugHookTypes?: Array<HookType> | null
+  _debugHookTypes?: Array<HookType> | null,
 |};
 ```
 
@@ -215,7 +222,7 @@ type Update = {
   callback: (() => mixed) | null,
 
   next: Update<State> | null, // 指向下一个更新
-  nextEffect: Update<State> | null // 指向下一个 side effect
+  nextEffect: Update<State> | null, // 指向下一个 side effect
 };
 ```
 
@@ -239,7 +246,7 @@ type UpdateQueue = {
 
   // 第一个和最后一个捕获产生的 side effect
   firstCapturedEffect: Update<State> | null,
-  lastCapturedEffect: Update<State> | null
+  lastCapturedEffect: Update<State> | null,
 };
 ```
 

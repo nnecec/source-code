@@ -99,130 +99,208 @@ export function requestUpdateLane(
 调度 Fiber 上的更新方法。
 
 ```javascript
-export function scheduleUpdateOnFiber(fiber, expirationTime) {
-  // checkForNestedUpdates(); // 检测队列中的 Update 是否超出限制，即检查是否有死循环更新
+export function scheduleUpdateOnFiber(
+  fiber: Fiber,
+  lane: Lane,
+  eventTime: number
+) {
+  // 判断是否是无限循环update
+  checkForNestedUpdates();
 
-  // 遍历 fiber 的父节点上 更新 expirationTime 和 childExpirationTime
-  const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
+  // 根据 lane 更新节点及父节点，返回 root
+  const root = markUpdateLaneFromFiberToRoot(fiber, lane);
   if (root === null) {
-    return;
+    return null;
   }
 
-  // checkForInterruption(fiber, expirationTime); // 检查是否需要打断(__DEV__)
-  // recordScheduleUpdate(); // TODO:标记 update 进度 (__DEV__)
+  // 将 root 标记为需要更新
+  markRootUpdated(root, lane, eventTime);
 
-  const priorityLevel = getCurrentPriorityLevel(); // 获取当前优先级
-
-  // 对于同步任务
-  if (expirationTime === Sync) {
+  if (root === workInProgressRoot) {
     if (
-      // 在 unbatchedUpdates 阶段，且 不在 render 或 commit 阶段，则说明是在初次渲染的阶段
+      deferRenderPhaseUpdateToNextBatch ||
+      (executionContext & RenderContext) === NoContext
+    ) {
+      // 更新 workInProgressRootUpdatedLanes
+      workInProgressRootUpdatedLanes = mergeLanes(
+        workInProgressRootUpdatedLanes,
+        lane
+      );
+    }
+
+    // 如果 workInProgressRootExitStatus 被标记为 RootSuspendedWithDelay
+    if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
+      markRootSuspended(root, workInProgressRootRenderLanes);
+    }
+  }
+
+  // TODO: requestUpdateLanePriority also reads the priority. Pass the
+  // priority as an argument to that function and this one.
+  const priorityLevel = getCurrentPriorityLevel();
+
+  if (lane === SyncLane) {
+    if (
+      // Check if we're inside unbatchedUpdates
       (executionContext & LegacyUnbatchedContext) !== NoContext &&
+      // Check if we're not already rendering
       (executionContext & (RenderContext | CommitContext)) === NoContext
     ) {
-      // 边缘情况。在 batchUpdates 的内部，渲染 root 应该是同步的，但布局更新应该推迟到 batchUpdates 结束
+      // Register pending interactions on the root to avoid losing traced interaction data.
+      // 跟踪这些update，并计数、检测它们是否会报错
+      schedulePendingInteractions(root, lane);
+
+      // 批量更新时，render是要保持同步的，但布局的更新要延迟到批量更新的末尾才执行
       performSyncWorkOnRoot(root);
     } else {
-      // 在其他阶段
-      ensureRootIsScheduled(root);
-      // schedulePendingInteractions(root, expirationTime);
+      ensureRootIsScheduled(root, eventTime);
+      schedulePendingInteractions(root, lane);
       if (executionContext === NoContext) {
         // Flush the synchronous work now, unless we're already working or inside
         // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
         // scheduleCallbackForFiber to preserve the ability to schedule a callback
         // without immediately flushing it. We only do this for user-initiated
-        // updates, to preserve historical behavior of sync mode.
+        // updates, to preserve historical behavior of legacy mode.
         flushSyncCallbackQueue();
       }
     }
   } else {
-    // 如果是异步任务
-    ensureRootIsScheduled(root);
-    schedulePendingInteractions(root, expirationTime);
-  }
-
-  if (
-    (executionContext & DiscreteEventContext) !== NoContext &&
-    // 只有在 UserBlockingPriority 或 ImmediatePriority 才被视为不连续的
-    (priorityLevel === UserBlockingPriority ||
-      priorityLevel === ImmediatePriority)
-  ) {
-    // 这是不连续事件的结果。 跟踪每个 root 的最低优先级不连续更新，以便在需要时尽早清除它们。
-    if (rootsWithPendingDiscreteUpdates === null) {
-      rootsWithPendingDiscreteUpdates = new Map([[root, expirationTime]]);
-    } else {
-      const lastDiscreteTime = rootsWithPendingDiscreteUpdates.get(root);
-      if (lastDiscreteTime === undefined || lastDiscreteTime > expirationTime) {
-        rootsWithPendingDiscreteUpdates.set(root, expirationTime);
+    // 如果是异步任务的话
+    if (
+      (executionContext & DiscreteEventContext) !== NoContext &&
+      // 只有在用户阻止优先级或更高优先级的更新才被视为离散，即使在离散事件中也是如此
+      (priorityLevel === UserBlockingSchedulerPriority ||
+        priorityLevel === ImmediateSchedulerPriority)
+    ) {
+      // 这是离散事件的结果。 跟踪每个根的最低优先级离散更新，以便我们可以在需要时尽早清除它们。
+      // 如果rootsWithPendingDiscreteUpdates为null，则初始化它
+      if (rootsWithPendingDiscreteUpdates === null) {
+        rootsWithPendingDiscreteUpdates = new Set([root]);
+      } else {
+        rootsWithPendingDiscreteUpdates.add(root);
       }
     }
+    // Schedule other updates after in case the callback is sync.
+    ensureRootIsScheduled(root, eventTime);
+    schedulePendingInteractions(root, lane);
   }
+
+  // We use this when assigning a lane for a transition inside
+  // `requestUpdateLane`. We assume it's the same as the root being updated,
+  // since in the common case of a single root app it probably is. If it's not
+  // the same root, then it's not a huge deal, we just might batch more stuff
+  // together more than necessary.
+  mostRecentlyUpdatedRoot = root;
 }
 ```
 
 ## markUpdateTimeFromFiberToRoot
 
-标记含有待处理工作的 Fiber
-
-- 获取 root 的 fiber 对象
-- expirationTime 大于子节点的 childExpirationTime 时，expirationTime 赋值给子节点
-- expirationTime 大于 firstPendingTime 和 lastPendingTime 时，expirationTime 赋值给两个值
+找到 rootFiber 并遍历更新子节点的 childLanes。
 
 ```javascript
-function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
-  // 更新 fiber 过期时间
-  if (fiber.expirationTime < expirationTime) {
-    fiber.expirationTime = expirationTime;
+function markUpdateLaneFromFiberToRoot(
+  sourceFiber: Fiber,
+  lane: Lane,
+): FiberRoot | null {
+  // Update the source fiber's lanes
+  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
+  let alternate = sourceFiber.alternate;
+  if (alternate !== null) {
+    alternate.lanes = mergeLanes(alternate.lanes, lane);
   }
-  let alternate = fiber.alternate;
-  if (alternate !== null && alternate.expirationTime < expirationTime) {
-    alternate.expirationTime = expirationTime;
+  // 向上遍历节点直到root节点，并更新经过节点的 childLanes
+  let node = sourceFiber;
+  let parent = sourceFiber.return;
+  while (parent !== null) {
+    parent.childLanes = mergeLanes(parent.childLanes, lane);
+    alternate = parent.alternate;
+    if (alternate !== null) {
+      alternate.childLanes = mergeLanes(alternate.childLanes, lane);
+    }
+    node = parent;
+    parent = parent.return;
   }
-
-  // 遍历父节点直到最后，并且更新子节点的过期时间
-  let node = fiber.return;
-  let root = null;
-  if (node === null && fiber.tag === HostRoot) {
-    // 如果没有父节点
-    root = fiber.stateNode;
+  if (node.tag === HostRoot) {
+    const root: FiberRoot = node.stateNode;
+    return root;
   } else {
-    while (node !== null) {
-      // 一直向上寻找根节点 并为经过的节点更新 childExpirationTime
-      alternate = node.alternate;
-      if (node.childExpirationTime < expirationTime) {
-        node.childExpirationTime = expirationTime;
-        if (
-          alternate !== null &&
-          alternate.childExpirationTime < expirationTime
-        ) {
-          alternate.childExpirationTime = expirationTime;
-        }
-      } else if (
-        alternate !== null &&
-        alternate.childExpirationTime < expirationTime
-      ) {
-        alternate.childExpirationTime = expirationTime;
-      }
-      if (node.return === null && node.tag === HostRoot) {
-        root = node.stateNode;
-        break;
-      }
-      node = node.return;
+    return null;
+  }
+}
+}
+```
+
+## ensureRootIsScheduled
+
+```javascript
+// Use this function to schedule a task for a root. There's only one task per
+// root; if a task was already scheduled, we'll check to make sure the
+// expiration time of the existing task is the same as the expiration time of
+// the next level that the root has work on. This function is called on every
+// update, and right before exiting a task.
+function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
+  const existingCallbackNode = root.callbackNode;
+
+  // Check if any lanes are being starved by other work. If so, mark them as
+  // expired so we know to work on those next.
+  markStarvedLanesAsExpired(root, currentTime);
+
+  // Determine the next lanes to work on, and their priority.
+  const newCallbackId = getNextLanes(
+    root,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
+  );
+  // This returns the priority level computed during the `getNextLanes` call.
+  const newCallbackPriority = returnNextLanesPriority();
+
+  if (newCallbackId === NoLanes) {
+    // Special case: There's nothing to work on.
+    if (existingCallbackNode !== null) {
+      cancelCallback(existingCallbackNode);
+      root.callbackNode = null;
+      root.callbackPriority = NoLanePriority;
+      root.callbackId = NoLanes;
     }
+    return;
   }
 
-  if (root !== null) {
-    if (workInProgressRoot === root) {
-      markUnprocessedUpdateTime(expirationTime);
-
-      if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
-        markRootSuspendedAtTime(root, renderExpirationTime);
+  // Check if there's an existing task. We may be able to reuse it.
+  const existingCallbackId = root.callbackId;
+  const existingCallbackPriority = root.callbackPriority;
+  if (existingCallbackId !== NoLanes) {
+    if (newCallbackId === existingCallbackId) {
+      // This task is already scheduled. Let's check its priority.
+      if (existingCallbackPriority === newCallbackPriority) {
+        // The priority hasn't changed. Exit.
+        return;
       }
+      // The task ID is the same but the priority changed. Cancel the existing
+      // callback. We'll schedule a new one below.
     }
-    markRootUpdatedAtTime(root, expirationTime);
+    cancelCallback(existingCallbackNode);
   }
 
-  return root;
+  // Schedule a new callback.
+  let newCallbackNode;
+  if (newCallbackPriority === SyncLanePriority) {
+    // Special case: Sync React callbacks are scheduled on a special
+    // internal queue
+    newCallbackNode = scheduleSyncCallback(
+      performSyncWorkOnRoot.bind(null, root)
+    );
+  } else {
+    const schedulerPriorityLevel = lanePriorityToSchedulerPriority(
+      newCallbackPriority
+    );
+    newCallbackNode = scheduleCallback(
+      schedulerPriorityLevel,
+      performConcurrentWorkOnRoot.bind(null, root)
+    );
+  }
+
+  root.callbackId = newCallbackId;
+  root.callbackPriority = newCallbackPriority;
+  root.callbackNode = newCallbackNode;
 }
 ```
 
@@ -232,62 +310,79 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
 // This is the entry point for synchronous tasks that don't go
 // through Scheduler
 function performSyncWorkOnRoot(root) {
-  // Check if there's expired work on this root. Otherwise, render at Sync.
-  const lastExpiredTime = root.lastExpiredTime;
-  const expirationTime = lastExpiredTime !== NoWork ? lastExpiredTime : Sync;
-
   flushPassiveEffects();
 
-  if (root !== workInProgressRoot || expirationTime !== renderExpirationTime) {
-    prepareFreshStack(root, expirationTime);
-    startWorkOnPendingInteractions(root, expirationTime);
+  let lanes;
+  let exitStatus;
+  if (
+    root === workInProgressRoot &&
+    includesSomeLane(root.expiredLanes, workInProgressRootRenderLanes)
+  ) {
+    // 如果有未完成的渲染，并且至少其中一个 lane 已经过期。
+    // 在渲染其余过期工作之前，需要完成渲染。
+    lanes = workInProgressRootRenderLanes;
+    exitStatus = renderRootSync(root, lanes);
+    if (
+      includesSomeLane(
+        workInProgressRootIncludedLanes,
+        workInProgressRootUpdatedLanes
+      )
+    ) {
+      // The render included lanes that were updated during the render phase.
+      // For example, when unhiding a hidden tree, we include all the lanes
+      // that were previously skipped when the tree was hidden. That set of
+      // lanes is a superset of the lanes we started rendering with.
+      //
+      // Note that this only happens when part of the tree is rendered
+      // concurrently. If the whole tree is rendered synchronously, then there
+      // are no interleaved events.
+      lanes = getNextLanes(root, lanes);
+      exitStatus = renderRootSync(root, lanes);
+    }
+  } else {
+    lanes = getNextLanes(root, NoLanes);
+    exitStatus = renderRootSync(root, lanes);
   }
 
-  // If we have a work-in-progress fiber, it means there's still work to do
-  // in this root.
-  if (workInProgress !== null) {
-    const prevExecutionContext = executionContext;
-    executionContext |= RenderContext;
-    const prevDispatcher = pushDispatcher(root);
-    const prevInteractions = pushInteractions(root);
-    startWorkLoopTimer(workInProgress);
+  if (root.tag !== LegacyRoot && exitStatus === RootErrored) {
+    executionContext |= RetryAfterError;
 
-    do {
-      try {
-        workLoopSync();
-        break;
-      } catch (thrownValue) {
-        handleError(root, thrownValue);
-      }
-    } while (true);
-    resetContextDependencies();
-    executionContext = prevExecutionContext;
-    popDispatcher(prevDispatcher);
-
-    if (workInProgressRootExitStatus === RootFatalErrored) {
-      const fatalError = workInProgressRootFatalError;
-      stopInterruptedWorkLoopTimer();
-      prepareFreshStack(root, expirationTime);
-      markRootSuspendedAtTime(root, expirationTime);
-      ensureRootIsScheduled(root);
-      throw fatalError;
+    // If an error occurred during hydration,
+    // discard server response and fall back to client side render.
+    if (root.hydrate) {
+      root.hydrate = false;
+      clearContainer(root.containerInfo);
     }
 
-    if (workInProgress !== null) {
-      // This is a sync render, so we should have finished the whole tree.
-    } else {
-      // We now have a consistent tree. Because this is a sync render, we
-      // will commit it even if something suspended.
-      stopFinishedWorkLoopTimer();
-      root.finishedWork = (root.current.alternate: any);
-      root.finishedExpirationTime = expirationTime;
-      finishSyncRender(root, workInProgressRootExitStatus, expirationTime);
+    // If something threw an error, try rendering one more time. We'll render
+    // synchronously to block concurrent data mutations, and we'll includes
+    // all pending updates are included. If it still fails after the second
+    // attempt, we'll give up and commit the resulting tree.
+    lanes = getLanesToRetrySynchronouslyOnError(root);
+    if (lanes !== NoLanes) {
+      exitStatus = renderRootSync(root, lanes);
     }
-
-    // Before exiting, make sure there's a callback scheduled for the next
-    // pending level.
-    ensureRootIsScheduled(root);
   }
+
+  if (exitStatus === RootFatalErrored) {
+    const fatalError = workInProgressRootFatalError;
+    prepareFreshStack(root, NoLanes);
+    markRootSuspended(root, lanes);
+    ensureRootIsScheduled(root, now());
+    throw fatalError;
+  }
+
+  // We now have a consistent tree. Because this is a sync render, we
+  // will commit it even if something suspended.
+  const finishedWork: Fiber = (root.current.alternate: any);
+  root.finishedWork = finishedWork;
+  root.finishedLanes = lanes;
+  commitRoot(root);
+
+  // Before exiting, make sure there's a callback scheduled for the next
+  // pending level.
+  ensureRootIsScheduled(root, now());
+
   return null;
 }
 ```
@@ -295,101 +390,106 @@ function performSyncWorkOnRoot(root) {
 ## performConcurrentWorkOnRoot
 
 ```javascript
+// This is the entry point for every concurrent task, i.e. anything that
+// goes through Scheduler.
 function performConcurrentWorkOnRoot(root, didTimeout) {
   // Since we know we're in a React event, we can clear the current
   // event time. The next update will compute a new event time.
-  currentEventTime = NoWork;
+  currentEventTime = NoTimestamp;
+  currentEventWipLanes = NoLanes;
+  currentEventPendingLanes = NoLanes;
 
-  if (didTimeout) {
-    // The render task took too long to complete. Mark the current time as
-    // expired to synchronously render all expired work in a single batch.
-    const currentTime = requestCurrentTimeForUpdate();
-    markRootExpiredAtTime(root, currentTime);
-    // This will schedule a synchronous callback.
-    ensureRootIsScheduled(root);
-    return null;
-  }
+  invariant(
+    (executionContext & (RenderContext | CommitContext)) === NoContext,
+    'Should not already be working.'
+  );
+
+  // Flush any pending passive effects before deciding which lanes to work on,
+  // in case they schedule additional work.
+  flushPassiveEffects();
 
   // Determine the next expiration time to work on, using the fields stored
   // on the root.
-  const expirationTime = getNextRootExpirationTimeToWorkOn(root);
-  if (expirationTime !== NoWork) {
-    const originalCallbackNode = root.callbackNode;
-    invariant(
-      (executionContext & (RenderContext | CommitContext)) === NoContext,
-      'Should not already be working.'
-    );
+  let lanes = getNextLanes(
+    root,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
+  );
+  if (lanes === NoLanes) {
+    return null;
+  }
 
-    flushPassiveEffects();
+  // TODO: We only check `didTimeout` defensively, to account for a Scheduler
+  // bug where `shouldYield` sometimes returns `true` even if `didTimeout` is
+  // true, which leads to an infinite loop. Once the bug in Scheduler is
+  // fixed, we can remove this, since we track expiration ourselves.
+  if (didTimeout) {
+    // Something expired. Flush synchronously until there's no expired
+    // work left.
+    markRootExpired(root, lanes);
+    // This will schedule a synchronous callback.
+    ensureRootIsScheduled(root, now());
+    return null;
+  }
 
-    // If the root or expiration time have changed, throw out the existing stack
-    // and prepare a fresh one. Otherwise we'll continue where we left off.
-    if (
-      root !== workInProgressRoot ||
-      expirationTime !== renderExpirationTime
-    ) {
-      prepareFreshStack(root, expirationTime);
-      startWorkOnPendingInteractions(root, expirationTime);
-    }
+  const originalCallbackNode = root.callbackNode;
 
-    // If we have a work-in-progress fiber, it means there's still work to do
-    // in this root.
-    if (workInProgress !== null) {
-      const prevExecutionContext = executionContext;
-      executionContext |= RenderContext;
-      const prevDispatcher = pushDispatcher(root);
-      const prevInteractions = pushInteractions(root);
-      startWorkLoopTimer(workInProgress);
-      do {
-        try {
-          workLoopConcurrent();
-          break;
-        } catch (thrownValue) {
-          handleError(root, thrownValue);
-        }
-      } while (true);
-      resetContextDependencies();
-      executionContext = prevExecutionContext;
-      popDispatcher(prevDispatcher);
-      if (enableSchedulerTracing) {
-        popInteractions(((prevInteractions: any): Set<Interaction>));
+  let exitStatus = renderRootConcurrent(root, lanes);
+
+  if (
+    includesSomeLane(
+      workInProgressRootIncludedLanes,
+      workInProgressRootUpdatedLanes
+    )
+  ) {
+    // The render included lanes that were updated during the render phase.
+    // For example, when unhiding a hidden tree, we include all the lanes
+    // that were previously skipped when the tree was hidden. That set of
+    // lanes is a superset of the lanes we started rendering with.
+    //
+    // So we'll throw out the current work and restart.
+    prepareFreshStack(root, NoLanes);
+  } else if (exitStatus !== RootIncomplete) {
+    if (exitStatus === RootErrored) {
+      executionContext |= RetryAfterError;
+
+      // If an error occurred during hydration,
+      // discard server response and fall back to client side render.
+      if (root.hydrate) {
+        root.hydrate = false;
+        clearContainer(root.containerInfo);
       }
 
-      if (workInProgressRootExitStatus === RootFatalErrored) {
-        const fatalError = workInProgressRootFatalError;
-        stopInterruptedWorkLoopTimer();
-        prepareFreshStack(root, expirationTime);
-        markRootSuspendedAtTime(root, expirationTime);
-        ensureRootIsScheduled(root);
-        throw fatalError;
-      }
-
-      if (workInProgress !== null) {
-        // There's still work left over. Exit without committing.
-        stopInterruptedWorkLoopTimer();
-      } else {
-        // We now have a consistent tree. The next step is either to commit it,
-        // or, if something suspended, wait to commit it after a timeout.
-        stopFinishedWorkLoopTimer();
-
-        const finishedWork: Fiber = ((root.finishedWork =
-          root.current.alternate): any);
-        root.finishedExpirationTime = expirationTime;
-        finishConcurrentRender(
-          root,
-          finishedWork,
-          workInProgressRootExitStatus,
-          expirationTime
-        );
-      }
-
-      ensureRootIsScheduled(root);
-      if (root.callbackNode === originalCallbackNode) {
-        // The task node scheduled for this root is the same one that's
-        // currently executed. Need to return a continuation.
-        return performConcurrentWorkOnRoot.bind(null, root);
+      // If something threw an error, try rendering one more time. We'll render
+      // synchronously to block concurrent data mutations, and we'll includes
+      // all pending updates are included. If it still fails after the second
+      // attempt, we'll give up and commit the resulting tree.
+      lanes = getLanesToRetrySynchronouslyOnError(root);
+      if (lanes !== NoLanes) {
+        exitStatus = renderRootSync(root, lanes);
       }
     }
+
+    if (exitStatus === RootFatalErrored) {
+      const fatalError = workInProgressRootFatalError;
+      prepareFreshStack(root, NoLanes);
+      markRootSuspended(root, lanes);
+      ensureRootIsScheduled(root, now());
+      throw fatalError;
+    }
+
+    // We now have a consistent tree. The next step is either to commit it,
+    // or, if something suspended, wait to commit it after a timeout.
+    const finishedWork: Fiber = (root.current.alternate: any);
+    root.finishedWork = finishedWork;
+    root.finishedLanes = lanes;
+    finishConcurrentRender(root, finishedWork, exitStatus, lanes);
+  }
+
+  ensureRootIsScheduled(root, now());
+  if (root.callbackNode === originalCallbackNode) {
+    // The task node scheduled for this root is the same one that's
+    // currently executed. Need to return a continuation.
+    return performConcurrentWorkOnRoot.bind(null, root);
   }
   return null;
 }

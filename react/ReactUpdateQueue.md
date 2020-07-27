@@ -4,6 +4,10 @@
 
 构建 Update 实例。
 
+- 用来记录组件的状态变化
+- 存放在 UpdateQueue 中
+- 多个 Update 可以同时存在
+
 ```javascript
 export const UpdateState = 0;
 export const ReplaceState = 1;
@@ -47,6 +51,14 @@ updateQueue: {
 ```
 
 ```javascript
+export type UpdateQueue<State> = {|
+  baseState: State,
+  firstBaseUpdate: Update<State> | null,
+  lastBaseUpdate: Update<State> | null,
+  shared: SharedQueue<State>,
+  effects: Array<Update<State>> | null,
+|};
+
 export function enqueueUpdate(fiber, update) {
   const updateQueue = fiber.updateQueue;
   if (updateQueue === null) {

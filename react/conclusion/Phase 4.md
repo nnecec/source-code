@@ -2,41 +2,39 @@
 
 > [enqueueUpdate](../ReactUpdateQueue.md#enqueueUpdate)
 
-<!-- TODO: 代码含义  -->
+将`Update`放入更新队列中，队列存在的意义是可以合并多次更新。
 
 ---
 
 > [scheduleUpdateOnFiber](../ReactFiberWorkLoop.md#scheduleUpdateOnFiber)
 
-`scheduleWork`等于调用`scheduleUpdateOnFiber`。
-
-根据 current fiber 和`expirationTime`调度 fiber 上的更新工作。
+根据 fiber 和`lane`调度 fiber 上的更新工作。
 
 ---
 
-> [markUpdateTimeFromFiberToRoot](../ReactFiberWorkLoop.md#markUpdateTimeFromFiberToRoot)
+> [markUpdateLaneFromFiberToRoot](../ReactFiberWorkLoop.md#markUpdateTimeFromFiberToRoot)
 
-通过`markUpdateTimeFromFiberToRoot`更新 fiber 的父 fiber 及其兄弟 fiber 的`expirationTime`和`childExpirationTime`，返回更新后的 root fiber。
-
-更新规则是，如果传入的`expirationTime`大于当前的`childExpirationTime`，则将当前的时间更新。
+将`lane`更新到 fiber 的`lanes`上，并从子节点向父节点遍历，更新`childLanes`，返回 root。
 
 ---
 
-如果`expirationTime`与`Sync`相等，即是同步任务：
+> [scheduleUpdateOnFiber](../ReactFiberWorkLoop.md#scheduleUpdateOnFiber)
 
-- 如果当前在 unbatchedUpdates 阶段，且还没到 rendering 阶段时，调用`renderRoot`渲染，并且如果有返回值，会一直循环调用来渲染子树
+如果`lane`与`SyncLane`相等，即是同步任务：
 
-- 否则则是更新阶段，调用 `scheduleCallbackForRoot`，并传入`ImmediatePriority`
+- 如果当前在`unbatchedUpdates`阶段，且还没到 rendering 阶段时，直接执行同步操作`performSyncWorkOnRoot`
+
+- 否则则是更新阶段，需要确认 root 是否已经在调度中，并执行`performSyncWorkOnRoot`
 
 如果是异步任务：
 
-- 调用 `scheduleCallbackForRoot`，传入对应的`priorityLevel`
+- 需要确认 root 是否已经在调度中，并执行`performConcurrentWorkOnRoot`
 
 ---
 
 > [performSyncWorkOnRoot](../ReactFiberWorkLoop.md#performSyncWorkOnRoot)
 
-首次同步渲染的入口，根据 expirationTime 进入 commitRoot 或 renderRoot
+同步渲染。
 
 ---
 
