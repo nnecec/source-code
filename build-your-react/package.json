@@ -1,0 +1,24 @@
+{
+  "name": "neact",
+  "version": "0.1.0",
+  "description": "https://pomb.us/build-your-own-react/",
+  "main": "index.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "start": "parcel example/index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.3.3",
+    "@babel/preset-env": "^7.3.1",
+    "babel-loader": "^8.0.5",
+    "parcel": "next"
+  },
+  "dependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.12.12"
+  }
+}

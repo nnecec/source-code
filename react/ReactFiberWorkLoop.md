@@ -96,7 +96,7 @@ export function requestUpdateLane(
 
 ## scheduleUpdateOnFiber
 
-调度 Fiber 上的更新方法。
+调度 Fiber 上的更新方法
 
 ```javascript
 export function scheduleUpdateOnFiber(

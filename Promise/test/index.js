@@ -1,23 +1,21 @@
 'use strict'
 
-var Promise = require('../index')
-var adapter = {}
+// const Promise = require('../index')
+// const Promise = require('es6-promise').Promise
+const Promise = require('bluebird')
+const adapter = {}
 
-adapter.deferred = function () {
-  var pending = {}
-  pending.promise = new Promise(function (resolver, reject) {
+adapter.deferred = () => {
+  const pending = {}
+  pending.promise = new Promise((resolver, reject) => {
     pending.resolve = resolver
     pending.reject = reject
   })
   return pending
 }
-adapter.resolved = function (value) {
-  return Promise.resolve(value)
-}
-adapter.rejected = function (reason) {
-  return Promise.reject(reason)
-}
+adapter.resolved = (value) => Promise.resolve(value)
+adapter.rejected = (reason) => Promise.reject(reason)
 
-describe('Promises/A+ Tests', function () {
+describe('Promises/A+ Tests', () => {
   require('promises-aplus-tests').mocha(adapter)
 })
