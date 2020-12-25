@@ -1,12 +1,12 @@
 import Neact from '../neact'
 
 const App = (props) => {
+  const [state, setState] = Neact.useState(1)
   return (
-    <div>
-      {/* <input onInput={updateValue} value={value} /> */}
-      <h2>Hello {props.name}</h2>
-    </div>
+    <h1 onClick={() => setState(c => c + 1)}>
+      Count: {state}
+    </h1>
   )
 }
 
-Neact.render(<App name="world"/>, document.getElementById('app'))
+Neact.render(<App />, document.getElementById('app'))
