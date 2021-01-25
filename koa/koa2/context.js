@@ -1,19 +1,19 @@
-const util = require('util');
-const createError = require('http-errors');
-const httpAssert = require('http-assert'); 
-const delegate = require('delegates'); // 将一个对象上的方法 委托 到另一个对象上
-const statuses = require('statuses');
-const Cookies = require('cookies'); // 
+const util = require('util')
+const createError = require('http-errors')
+const httpAssert = require('http-assert')
+const delegate = require('delegates') // 将一个对象上的方法 委托 到另一个对象上
+const statuses = require('statuses')
+const Cookies = require('cookies') //
 
-const COOKIES = Symbol('context#cookies');
+const COOKIES = Symbol('context#cookies')
 
 const proto = module.exports = {
-  inspect() {
-    if (this === proto) return this;
-    return this.toJSON();
+  inspect () {
+    if (this === proto) return this
+    return this.toJSON()
   },
 
-  toJSON() {
+  toJSON () {
     return {
       request: this.request.toJSON(),
       response: this.response.toJSON(),
@@ -22,7 +22,7 @@ const proto = module.exports = {
       req: '<original node req>',
       res: '<original node res>',
       socket: '<original node socket>'
-    };
+    }
   },
 
   /**
@@ -31,9 +31,9 @@ const proto = module.exports = {
    */
 
   assert: httpAssert,
-  
-  throw(...args) {
-    throw createError(...args);
+
+  throw (...args) {
+    throw createError(...args)
   },
 
   /**
@@ -42,74 +42,73 @@ const proto = module.exports = {
    * @param {*} err
    * @returns
    */
-  onerror(err) {
-    if (null == err) return;
+  onerror (err) {
+    if (err == null) return
 
-    if (!(err instanceof Error)) err = new Error(util.format('non-error thrown: %j', err));
+    if (!(err instanceof Error)) err = new Error(util.format('non-error thrown: %j', err))
 
-    let headerSent = false;
-    if (this.headerSent || !this.writable) { 
-      headerSent = err.headerSent = true;
+    let headerSent = false
+    if (this.headerSent || !this.writable) {
+      headerSent = err.headerSent = true
     }
 
     // delegate
-    this.app.emit('error', err, this);
+    this.app.emit('error', err, this)
 
     // nothing we can do here other
     // than delegate to the app-level
     // handler and log.
     if (headerSent) {
-      return;
+      return
     }
 
-    const { res } = this;
+    const { res } = this
 
     // first unset all headers
     /* istanbul ignore else */
     if (typeof res.getHeaderNames === 'function') {
-      res.getHeaderNames().forEach(name => res.removeHeader(name));
+      res.getHeaderNames().forEach(name => res.removeHeader(name))
     } else {
-      res._headers = {}; // Node < 7.7
+      res._headers = {} // Node < 7.7
     }
 
     // then set those specified
-    this.set(err.headers);
+    this.set(err.headers)
 
     // force text/plain
-    this.type = 'text';
+    this.type = 'text'
 
     // ENOENT support
-    if ('ENOENT' == err.code) err.status = 404;
+    if (err.code == 'ENOENT') err.status = 404
 
     // default to 500
-    if ('number' != typeof err.status || !statuses[err.status]) err.status = 500;
+    if (typeof err.status !== 'number' || !statuses[err.status]) err.status = 500
 
     // respond
-    const code = statuses[err.status];
-    const msg = err.expose ? err.message : code;
-    this.status = err.status;
-    this.length = Buffer.byteLength(msg);
-    res.end(msg);
+    const code = statuses[err.status]
+    const msg = err.expose ? err.message : code
+    this.status = err.status
+    this.length = Buffer.byteLength(msg)
+    res.end(msg)
   },
 
-  get cookies() {
+  get cookies () {
     if (!this[COOKIES]) {
       this[COOKIES] = new Cookies(this.req, this.res, {
         keys: this.app.keys,
         secure: this.request.secure
-      });
+      })
     }
-    return this[COOKIES];
+    return this[COOKIES]
   },
 
-  set cookies(_cookies) {
-    this[COOKIES] = _cookies;
+  set cookies (_cookies) {
+    this[COOKIES] = _cookies
   }
-};
-
+}
 
 if (util.inspect.custom) {
-  module.exports[util.inspect.custom] = module.exports.inspect;
+  module.exports[util.inspect.custom] = module.exports.inspect
 }
 
 /**
@@ -132,7 +131,7 @@ delegate(proto, 'response')
   .access('lastModified')
   .access('etag')
   .getter('headerSent')
-  .getter('writable');
+  .getter('writable')
 
 /**
  * Request 委托到 proto 上.
@@ -167,4 +166,4 @@ delegate(proto, 'request')
   .getter('stale')
   .getter('fresh')
   .getter('ips')
-  .getter('ip');
+  .getter('ip')

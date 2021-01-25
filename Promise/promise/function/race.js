@@ -1,5 +1,5 @@
-var internal = require('../internal')
-var utils = require('../utils')
+const internal = require('../internal')
+const utils = require('../utils')
 
 /**
  * Promise.race
@@ -8,21 +8,21 @@ var utils = require('../utils')
  * @returns
  */
 function race (iterable) {
-  var self = this
+  const self = this
   if (!utils.isArray(iterable)) {
     return this.reject(new TypeError('parameter must be an array'))
   }
 
-  var len = iterable.length
+  const len = iterable.length
 
-  var called = false
+  let called = false
   // 如果参数长度为0 则说明为空数组
   if (!len) {
     return this.resolve([])
   }
 
-  var i = 0
-  var promise = new this(internal.noop)
+  let i = 0
+  const promise = new this(internal.noop)
 
   while (i++ < len) {
     resolver(iterable[i])

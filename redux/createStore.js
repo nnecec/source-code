@@ -63,20 +63,27 @@ export default function createStore (reducer, preloadedState, enhancer) {
 
   // 获取 state
   function getState () {
+    if (isDispatching) {
+      throw new Error(
+        'You may not call store.getState() while the reducer is executing. ' +
+        'The reducer has already received the state as an argument. ' +
+        'Pass it down from the top reducer instead of reading it from the store.'
+      )
+    }
     return currentState
   }
 
   /**
-	 * 添加一个变化监听器。每当 dispatch action 的时候就会执行，state 树中的一部分可能已经变化。你可以在回调函数里调用 getState() 来拿到当前 state。
-	 *
-	 * 你可以在监听器里调用 dispatch() 有下列注意事项：
-	 * 1. 监听器调用 dispatch() 仅仅应当发生在响应用户的 actions 或者特殊的条件限制下（比如： 在 store 有一个特殊的字段时 dispatch action）。虽然没有任何条件去调用 dispatch() 在技术上是可行的，但是随着每次 dispatch() 改变 store 可能会导致陷入无穷的循环。
-	 * 2. 订阅器（subscriptions） 在每次 dispatch() 调用之前都会保存一份快照。当你在正在调用监听器（listener）的时候订阅(subscribe)或者去掉订阅（unsubscribe），对当前的 dispatch() 不会有任何影响。但是对于下一次的 dispatch()，无论嵌套与否，都会使用订阅列表里最近的一次快照。
-	 * 3. 订阅器不应该注意到所有 state 的变化，在订阅器被调用之前，往往由于嵌套的 dispatch() 导致 state 发生多次的改变。保证所有的监听器都注册在 dispatch() 启动之前，这样，在调用监听器的时候就会传入监听器所存在时间里最新的一次 state。
-	 *
-	 * @param {Function} listener 每次 dispatch 时要触发的回调
-	 * @returns {Function} 返回一个函数，用于移除 listener
-	 */
+   * 添加一个变化监听器。每当 dispatch action 的时候就会执行，state 树中的一部分可能已经变化。你可以在回调函数里调用 getState() 来拿到当前 state。
+   *
+   * 你可以在监听器里调用 dispatch() 有下列注意事项：
+   * 1. 监听器调用 dispatch() 仅仅应当发生在响应用户的 actions 或者特殊的条件限制下（比如： 在 store 有一个特殊的字段时 dispatch action）。虽然没有任何条件去调用 dispatch() 在技术上是可行的，但是随着每次 dispatch() 改变 store 可能会导致陷入无穷的循环。
+   * 2. 订阅器（subscriptions） 在每次 dispatch() 调用之前都会保存一份快照。当你在正在调用监听器（listener）的时候订阅(subscribe)或者去掉订阅（unsubscribe），对当前的 dispatch() 不会有任何影响。但是对于下一次的 dispatch()，无论嵌套与否，都会使用订阅列表里最近的一次快照。
+   * 3. 订阅器不应该注意到所有 state 的变化，在订阅器被调用之前，往往由于嵌套的 dispatch() 导致 state 发生多次的改变。保证所有的监听器都注册在 dispatch() 启动之前，这样，在调用监听器的时候就会传入监听器所存在时间里最新的一次 state。
+   *
+   * @param {Function} listener 每次 dispatch 时要触发的回调
+   * @returns {Function} 返回一个函数，用于移除 listener
+   */
   function subscribe (listener) {
     if (typeof listener !== 'function') {
       throw new Error('Expected listener to be a function.')
