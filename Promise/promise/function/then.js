@@ -1,6 +1,6 @@
-var utils = require('../utils')
-var internal = require('../internal')
-var SubscriberItem = require('../subscriber')
+const utils = require('../utils')
+const internal = require('../internal')
+const SubscriberItem = require('../subscriber')
 
 /**
  * 返回新的 Promise 类型的对象
@@ -17,11 +17,17 @@ function then (onFulfilled, onRejected) {
   }
 
   // 在 then 中新建一个内部 promise 用于返回
-  var _promise = new this.constructor(internal.noop)
+  const _promise = new this.constructor(internal.noop)
+
+  if (!process.browser) {
+    if (this.handled === internal.UNHANDLED) {
+      this.handled = null
+    }
+  }
 
   // 判断 promise 状态
   if (this._state !== internal.PENDING) { // 如果状态不是 pending 则执行对应状态的方法
-    var resolver = this._state === internal.FULFILLED ? onFulfilled : onRejected
+    const resolver = this._state === internal.FULFILLED ? onFulfilled : onRejected
     internal.unwrap(_promise, resolver, this._value)
   } else {
     // 如果状态是 pending

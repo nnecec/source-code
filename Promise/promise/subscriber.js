@@ -1,5 +1,5 @@
-var utils = require('./utils')
-var internal = require('./internal')
+const utils = require('./utils')
+const internal = require('./internal')
 
 function SubscriberItem (promise, onFulfilled, onRejected) {
   this.promise = promise

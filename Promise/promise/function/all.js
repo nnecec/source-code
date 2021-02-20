@@ -1,5 +1,5 @@
-var internal = require('../internal')
-var utils = require('../utils')
+const internal = require('../internal')
+const utils = require('../utils')
 
 /**
  * Promise.all
@@ -8,43 +8,44 @@ var utils = require('../utils')
  * @returns
  */
 function all (iterable) {
-  var self = this
+  const self = this
   // 如果参数不是数组则抛错
   if (!utils.isArray(iterable)) {
     return this.reject(new TypeError('parameter must be an array'))
   }
 
-  var len = iterable.length
+  const len = iterable.length
 
-  var called = false
+  let called = false
   // 如果参数长度为0 则说明为空数组
   if (!len) {
     return this.resolve([])
   }
 
-  var values = new Array(len) // 最后输出的值
-  var resolved = 0 // resolve 的数量
-  var i = 0
-  var promise = new this(internal.noop)
+  const values = new Array(len) // 最后输出的值
+  let resolved = 0 // resolve 的数量
+  let i = 0
+  const promise = new this(internal.noop)
 
-  while (i++ < len) {
-    allResolver(iterable[i], i)
-  }
-  return promise
   function allResolver (value, i) {
     self.resolve(value).then(function (value) {
       values[i] = value
       if (++resolved === len && !called) {
         called = true
-        handlers.resolve(promise, values)
+        internal.handlers.resolve(promise, values)
       }
     }, function (error) {
       if (!called) {
         called = true
-        handlers.reject(promise, error)
+        internal.handlers.reject(promise, error)
       }
     })
   }
+
+  while (i++ < len) {
+    allResolver(iterable[i], i)
+  }
+  return promise
 }
 
 module.exports = all

@@ -24,23 +24,24 @@ function race (iterable) {
   let i = 0
   const promise = new this(internal.noop)
 
-  while (i++ < len) {
-    resolver(iterable[i])
-  }
-  return promise
   function resolver (value) {
     self.resolve(value).then(function (value) {
       if (!called) {
         called = true
-        handlers.resolve(promise, value)
+        internal.handlers.resolve(promise, value)
       }
     }, function (error) {
       if (!called) {
         called = true
-        handlers.reject(promise, error)
+        internal.handlers.reject(promise, error)
       }
     })
   }
+
+  while (i++ < len) {
+    resolver(iterable[i])
+  }
+  return promise
 }
 
 module.exports = race

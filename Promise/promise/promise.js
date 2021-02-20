@@ -1,10 +1,9 @@
-var then = require('./function/then')
-var all = require('./function/all')
-var race = require('./function/race')
-var resolve = require('./function/resolve')
-var reject = require('./function/reject')
-var internal = require('./internal')
-var utils = require('./utils')
+const then = require('./function/then')
+const all = require('./function/all')
+const race = require('./function/race')
+const resolve = require('./function/resolve')
+const reject = require('./function/reject')
+const internal = require('./internal')
 
 /**
  * Promise 构造函数
@@ -20,6 +19,9 @@ function Promise (resolver) {
   this._value = undefined // promise 当前值
   this._subscribers = [] // promise 当前注册的回调队列
 
+  if (!process.browser) {
+    this.handled = internal.UNHANDLED
+  }
   // 如果调用 Promise 的不是来自 Promise 内部
   // 构造 Promise 实例
   if (resolver !== internal.noop) {
@@ -46,7 +48,11 @@ Promise.prototype.catch = function (onRejected) {
  * @returns
  */
 Promise.prototype.finally = function (callback) {
-  var constructor = this.constructor
+  if (typeof callback !== 'function') {
+    return this
+  }
+
+  const constructor = this.constructor
 
   return this.then(function (value) {
     constructor.resolve(callback()).then(function () {

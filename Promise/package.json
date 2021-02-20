@@ -13,6 +13,7 @@
     "bluebird": "^3.7.2",
     "es6-promise": "^4.2.8",
     "immediate": "^3.2.3",
+    "lie": "^3.3.0",
     "mocha": "^8.2.1",
     "promises-aplus-tests": "^2.1.2"
   }

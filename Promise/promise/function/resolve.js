@@ -1,10 +1,12 @@
-var internal = require('../internal')
+const internal = require('../internal')
 
 function resolve (value) {
-  if (value instanceof this) { // this 是 Promise
+  const Constructor = this
+  if (value && typeof value === 'object' && value.constructor === Constructor) {
     return value
   }
-  return internal.handlers.resolve(new this(internal.noop), value)
+  const promise = new Constructor(internal.noop)
+  return internal.handlers.resolve(promise, value)
 }
 
 module.exports = resolve

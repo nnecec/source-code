@@ -2,18 +2,14 @@
 
 ```javascript
 // TypeOfMode
-export const NoContext = 0b000;
-export const ConcurrentMode = 0b001;
-export const StrictMode = 0b010;
-export const ProfileMode = 0b100;
-
-// WorkPhase
-const NotWorking = 0;
-const BatchedPhase = 1;
-const LegacyUnbatchedPhase = 2;
-const FlushSyncPhase = 3;
-const RenderPhase = 4;
-const CommitPhase = 5;
+export const NoMode = 0b00000;
+export const StrictMode = 0b00001;
+// TODO: Remove BlockingMode and ConcurrentMode by reading from the root
+// tag instead
+export const BlockingMode = 0b00010;
+export const ConcurrentMode = 0b00100;
+export const ProfileMode = 0b01000;
+export const DebugTracingMode = 0b10000;
 
 // priorityLevel
 export const ImmediatePriority = 99;
@@ -23,22 +19,13 @@ export const LowPriority = 96;
 export const IdlePriority = 95;
 export const NoPriority = 90;
 
-// expiration time
-MAX_SIGNED_31_BIT_INT = 1073741823; // V8在32位系统上的最大整形值 Math.pow(2, 30) - 1
-const MAGIC_NUMBER_OFFSET = MAX_SIGNED_31_BIT_INT - 1;
-NoWork = 0;
-Never = 1;
-Sync = MAGIC_NUMBER_OFFSET;
-
-export type TypeOfMode = number;
-
-export const NoMode = 0b0000;
-export const StrictMode = 0b0001;
-// TODO: Remove BlockingMode and ConcurrentMode by reading from the root
-// tag instead
-export const BlockingMode = 0b0010;
-export const ConcurrentMode = 0b0100;
-export const ProfileMode = 0b1000;
+// schedulerPriorities
+export const NoPriority = 0;
+export const ImmediatePriority = 1;
+export const UserBlockingPriority = 2;
+export const NormalPriority = 3;
+export const LowPriority = 4;
+export const IdlePriority = 5;
 
 // RootTag
 export type RootTag = 0 | 1 | 2;

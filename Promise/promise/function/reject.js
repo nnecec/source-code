@@ -1,7 +1,8 @@
-var internal = require('../internal')
+const internal = require('../internal')
 
 function reject (reason) {
-  var promise = new this(internal.noop)
+  const Constructor = this
+  const promise = new Constructor(internal.noop)
   return internal.handlers.reject(promise, reason)
 }
 

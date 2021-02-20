@@ -1,10 +1,10 @@
-var immediate = require('immediate')
-var utils = require('./utils')
+const immediate = require('immediate')
 
-var PENDING = 0
-var FULFILLED = 1
-var REJECTED = 2
-var handlers = {}
+const PENDING = 0
+const FULFILLED = 1
+const REJECTED = 2
+const UNHANDLED = -1
+const handlers = {}
 
 /**
  *
@@ -12,8 +12,8 @@ var handlers = {}
  * @param {*} self
  * @param {Function} resolver 构建Promise传入的 function
  */
-function safelyResolveThenable (self, resolver) {
-  var called = false // 标记该promise是否被调用过
+function safelyResolveThenable (self, thenable) {
+  let called = false // 标记该promise是否被调用过
   function onError (value) { //
     if (called) {
       return
@@ -31,10 +31,10 @@ function safelyResolveThenable (self, resolver) {
   }
 
   function tryToUnwrap () {
-    resolver(onSuccess, onError)
+    thenable(onSuccess, onError)
   }
 
-  var result = tryCatch(tryToUnwrap)
+  const result = tryCatch(tryToUnwrap)
   if (result.status === 'error') {
     onError(result.value)
   }
@@ -48,7 +48,7 @@ function safelyResolveThenable (self, resolver) {
  */
 function unwrap (promise, func, value) {
   immediate(function () {
-    var returnValue
+    let returnValue
     try { // 捕获报错
       returnValue = func(value) // 对当前 then 中的值调用 resolver 方法获得 returnValue
     } catch (e) {
@@ -73,14 +73,14 @@ function unwrap (promise, func, value) {
  */
 handlers.resolve = function (self, value) {
   // Promise 执行的方法都需要经过 try..catch
-  var result = tryCatch(getThen, value)
+  const result = tryCatch(getThen, value)
 
   // 如果有 error，则进入 reject
   if (result.status === 'error') {
     return handlers.reject(self, result.value)
   }
   // TODO: what & why ?
-  var thenable = result.value
+  const thenable = result.value
 
   if (thenable) {
     safelyResolveThenable(self, thenable)
@@ -89,10 +89,12 @@ handlers.resolve = function (self, value) {
     self._state = FULFILLED
     self._value = value
 
-    var i = 0
-    var len = self._subscribers.length
-    while (i++ < len) {
+    let i = 0
+    const len = self._subscribers.length
+
+    while (i < len) {
       self._subscribers[i].callFulfilled(value)
+      i++
     }
   }
   return self
@@ -101,11 +103,20 @@ handlers.resolve = function (self, value) {
 handlers.reject = function (self, error) {
   self._state = REJECTED
   self._value = error
-
-  var i = 0
-  var len = self._subscribers.length
-  while (i++ < len) {
+  if (!process.browser) {
+    if (self.handled === UNHANDLED) {
+      immediate(function () {
+        if (self.handled === UNHANDLED) {
+          process.emit('unhandledRejection', error, self)
+        }
+      })
+    }
+  }
+  let i = 0
+  const len = self._subscribers.length
+  while (i < len) {
     self._subscribers[i].callRejected(error)
+    i++
   }
   return self
 }
@@ -118,7 +129,7 @@ handlers.reject = function (self, error) {
  * @returns
  */
 function tryCatch (func, value) {
-  var out = {}
+  const out = {}
   try {
     out.value = func(value)
     out.status = 'success'
@@ -131,7 +142,7 @@ function tryCatch (func, value) {
 
 function getThen (obj) {
   // Make sure we only access the accessor once as required by the spec
-  var then = obj && obj.then
+  const then = obj && obj.then
 
   if (obj && (typeof obj === 'object' || typeof obj === 'function') && typeof then === 'function') {
     return function applyThen () {
@@ -144,6 +155,7 @@ module.exports = {
   PENDING: PENDING,
   FULFILLED: FULFILLED,
   REJECTED: REJECTED,
+  UNHANDLED: UNHANDLED,
   noop: function () { },
   handlers: handlers,
   unwrap: unwrap,
