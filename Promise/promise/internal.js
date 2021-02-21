@@ -40,7 +40,7 @@ function safelyResolveThenable (self, thenable) {
   }
 }
 /**
- * 执行 then 状态对应的方法 func
+ * 执行 promise 对应的方法 func
  *
  * @param {Promise} promise then 内部新建的 promise，用于返回值
  * @param {Function} func
@@ -91,7 +91,6 @@ handlers.resolve = function (self, value) {
 
     let i = 0
     const len = self._subscribers.length
-
     while (i < len) {
       self._subscribers[i].callFulfilled(value)
       i++
@@ -103,15 +102,7 @@ handlers.resolve = function (self, value) {
 handlers.reject = function (self, error) {
   self._state = REJECTED
   self._value = error
-  if (!process.browser) {
-    if (self.handled === UNHANDLED) {
-      immediate(function () {
-        if (self.handled === UNHANDLED) {
-          process.emit('unhandledRejection', error, self)
-        }
-      })
-    }
-  }
+
   let i = 0
   const len = self._subscribers.length
   while (i < len) {
@@ -129,24 +120,25 @@ handlers.reject = function (self, error) {
  * @returns
  */
 function tryCatch (func, value) {
-  const out = {}
+  const result = {}
   try {
-    out.value = func(value)
-    out.status = 'success'
+    result.value = func(value)
+    result.status = 'success'
   } catch (e) {
-    out.status = 'error'
-    out.value = e
+    result.status = 'error'
+    result.value = e
   }
-  return out
+  return result
 }
 
-function getThen (obj) {
+function getThen (resolver) {
   // Make sure we only access the accessor once as required by the spec
-  const then = obj && obj.then
+  const then = resolver && resolver.then
 
-  if (obj && (typeof obj === 'object' || typeof obj === 'function') && typeof then === 'function') {
+  // 判断 resolver 是合法的 Promise 处理器函数
+  if (resolver && (typeof resolver === 'object' || typeof resolver === 'function') && typeof then === 'function') {
     return function applyThen () {
-      then.apply(obj, arguments)
+      then.apply(resolver, arguments)
     }
   }
 }

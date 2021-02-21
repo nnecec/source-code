@@ -19,12 +19,6 @@ function then (onFulfilled, onRejected) {
   // 在 then 中新建一个内部 promise 用于返回
   const _promise = new this.constructor(internal.noop)
 
-  if (!process.browser) {
-    if (this.handled === internal.UNHANDLED) {
-      this.handled = null
-    }
-  }
-
   // 判断 promise 状态
   if (this._state !== internal.PENDING) { // 如果状态不是 pending 则执行对应状态的方法
     const resolver = this._state === internal.FULFILLED ? onFulfilled : onRejected

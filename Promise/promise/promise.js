@@ -19,9 +19,6 @@ function Promise (resolver) {
   this._value = undefined // promise 当前值
   this._subscribers = [] // promise 当前注册的回调队列
 
-  if (!process.browser) {
-    this.handled = internal.UNHANDLED
-  }
   // 如果调用 Promise 的不是来自 Promise 内部
   // 构造 Promise 实例
   if (resolver !== internal.noop) {
@@ -34,7 +31,7 @@ Promise.prototype.then = then
 /**
  * Promise.catch
  *
- * @param {*} onRejected
+ * @param {Function} onRejected
  * @returns
  */
 Promise.prototype.catch = function (onRejected) {
@@ -44,7 +41,7 @@ Promise.prototype.catch = function (onRejected) {
 /**
  * Promise.finally
  *
- * @param {*} callback
+ * @param {Function} callback
  * @returns
  */
 Promise.prototype.finally = function (callback) {
