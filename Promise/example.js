@@ -1,9 +1,10 @@
 const Promise = require('./index')
 
 new Promise((resolve, reject) => {
-  // resolve({ test: 1 })
-  // resolve({ test: 2 })
-  reject(3)
+  console.log('--promise start--')
+  setTimeout(() => {
+    resolve(333)
+  }, 1000)
 }).then((data) => {
   console.log('example: result1', data)
   return 1
@@ -20,4 +21,7 @@ new Promise((resolve, reject) => {
   return 3
 }, (data1) => {
   console.log('example: error3', data1)
+  return 'error3'
+}).finally(data => {
+  console.log(data)
 })

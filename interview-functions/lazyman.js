@@ -1,6 +1,4 @@
 class LazyMan {
-  queue: any[]
-
   constructor () {
     this.queue = []
     setTimeout(() => {
