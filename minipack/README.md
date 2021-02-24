@@ -31,17 +31,17 @@
 
 > createGraph(entryPath)
 
-首先通过`createAssets`方法获取`entry path`的 asset。
+首先通过`createAssets`方法获取`entry path`的 `mainAsset`。
 
 使用`queue`参数储存项目文件的 asset 集合。
 
-遍历该集合，并循环 asset 的`dependencies`生成依赖的`asset`加入到`queue`中。这样只要有新的`asset`加入到`queue`中，就代表一直有新的`import`依赖导入，所以就需要一直读取`asset`。
+遍历该集合，并循环 `mainAsset` 的`dependencies`生成依赖的`asset`加入到`queue`中。这样只要有新的`asset`加入到`queue`中，就代表一直有新的`import`依赖导入，所以就需要一直读取`asset`。
 
 直达遍历结束，最终返回从入口文件开始包含每个模块的`queue`，即最终的依赖图。
 
 > bundle(graph)
 
-`bundle`方法接受生成的`graph`参数。
+`bundle`方法接受生成的`graph`参数。`graph`包含 `entry path`及其关联的所有依赖信息。
 
 首先，循环`graph`，将其中的每个`asset`生成对应模块。格式使用`模块的id`作为`key`和一个数组作为`value`。
 
@@ -55,7 +55,7 @@
 
 函数通过`模块id`访问到`modules`中的模块对象，通过解构获取数组的第一个值`fn`和第二个值`mapping`对象。最后会返回`exports`对象。
 
-（当调用模块代码时，即会调用模块内部的代码，并通过`require`加载依赖的文件。）
+（当调用模块代码时，即会调用模块内部的代码，并通过`require`加载依赖的文件。初始化会`require(0)`来加载入口文件，然后继续查找关系链`asset.mapping`加载依赖的所有模块）
 
 最后返回`result`。
 

@@ -109,6 +109,7 @@ export type Fiber = {|
   // Effect
   flags: Flags,
   subtreeFlags: Flags,
+  // diff阶段标记的需要删除的节点
   deletions: Array<Fiber> | null,
 
   // 单链表 用来快速查找下一个side effect
