@@ -1,28 +1,28 @@
-import { useEffect, useRef, useState, useCallback } from "./react-deps.js";
+import { useEffect, useRef, useState, useCallback } from './react-deps.js'
 
-export default ({ base = "" } = {}) => {
-  const [path, update] = useState(currentPathname(base)); // 获取浏览器当前地址
-  const prevPath = useRef(path);
+export default ({ base = '' } = {}) => {
+  const [path, update] = useState(currentPathname(base)) // 获取浏览器当前地址
+  const prevPath = useRef(path)
 
   useEffect(() => {
-    patchHistoryEvents();
+    patchHistoryEvents()
 
     // 将获取到的地址，与存在 ref 的地址比较，如果不同则代表发生了改变需要更新页面
     const checkForUpdates = () => {
-      const pathname = currentPathname(base);
-      prevPath.current !== pathname && update((prevPath.current = pathname));
-    };
+      const pathname = currentPathname(base)
+      prevPath.current !== pathname && update((prevPath.current = pathname))
+    }
 
-    const events = ["popstate", "pushState", "replaceState"]; // HTML5 history API 中的方法 https://developer.mozilla.org/zh-CN/docs/Web/API/History
-    events.map(e => addEventListener(e, checkForUpdates));
+    const events = ['popstate', 'pushState', 'replaceState'] // HTML5 history API 中的方法 https://developer.mozilla.org/zh-CN/docs/Web/API/History
+    events.map(e => addEventListener(e, checkForUpdates))
 
     // it's possible that an update has occurred between render and the effect handler,
     // so we run additional check on mount to catch these updates. Based on:
     // https://gist.github.com/bvaughn/e25397f70e8c65b0ae0d7c90b731b189
-    checkForUpdates();
+    checkForUpdates()
 
-    return () => events.map(e => removeEventListener(e, checkForUpdates));
-  }, []);
+    return () => events.map(e => removeEventListener(e, checkForUpdates))
+  }, [])
 
   // the 2nd argument of the `useLocation` return value is a function
   // that allows to perform a navigation.
@@ -31,12 +31,12 @@ export default ({ base = "" } = {}) => {
   // it can be passed down as an element prop without any performance concerns.
   const navigate = useCallback(
     (to, replace) =>
-      history[replace ? "replaceState" : "pushState"](0, 0, base + to),
+      history[replace ? 'replaceState' : 'pushState'](0, 0, base + to),
     []
-  );
+  )
 
-  return [path, navigate];
-};
+  return [path, navigate]
+}
 
 // While History API does have `popstate` event, the only
 // proper way to listen to changes via `push/replaceState`
@@ -44,26 +44,26 @@ export default ({ base = "" } = {}) => {
 //
 // See https://stackoverflow.com/a/4585031
 
-let patched = 0;
+let patched = 0
 
 const patchHistoryEvents = () => {
   if (patched) return;
 
-  ["pushState", "replaceState"].map(type => {
-    const original = history[type];
+  ['pushState', 'replaceState'].map(type => {
+    const original = history[type]
 
     history[type] = function () {
-      const result = original.apply(this, arguments);
-      const event = new Event(type);
-      event.arguments = arguments;
+      const result = original.apply(this, arguments)
+      const event = new Event(type)
+      event.arguments = arguments
 
-      dispatchEvent(event);
-      return result;
-    };
-  });
+      dispatchEvent(event)
+      return result
+    }
+  })
 
-  return (patched = 1);
-};
+  return (patched = 1)
+}
 
 const currentPathname = (base, path = location.pathname) =>
-  !path.indexOf(base) ? path.slice(base.length) || "/" : path;
+  !path.indexOf(base) ? path.slice(base.length) || '/' : path

@@ -12,6 +12,7 @@
     "assert": "^2.0.0",
     "bluebird": "^3.7.2",
     "es6-promise": "^4.2.8",
+    "esbuild": "^0.8.51",
     "immediate": "^3.2.3",
     "lie": "^3.3.0",
     "mocha": "^8.2.1",
