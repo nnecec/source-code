@@ -6,7 +6,7 @@
 
 ## createStore.js
 
-`createStore()`可以算做`store`的构造函数了，创建一个`store`并持有整个`store tree`。唯一改变`state`的方法就是`dispatch()`。
+`createStore()`可以算做创建一个`store`并持有整个`store tree`。唯一改变`state`的方法就是`dispatch()`。
 
 `state`存放在`createStore()`这个闭包里，所以只能用`getState`来获取
 

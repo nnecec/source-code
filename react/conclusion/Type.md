@@ -114,7 +114,7 @@ export type Fiber = {|
 
   // 单链表 用来快速查找下一个side effect
   nextEffect: Fiber | null,
-  // 子树中第一个side effect
+  // 子树中第一个和最后一个 side-effect，
   firstEffect: Fiber | null,
   lastEffect: Fiber | null,
 

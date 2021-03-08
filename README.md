@@ -8,7 +8,7 @@ Read open source code.
 
 ## React
 
-- [ ] react / https://github.com/facebook/react
+- [x] react / https://github.com/facebook/react
 - [x] redux / https://github.com/reduxjs/redux
 - [x] react-redux / https://github.com/reduxjs/react-redux
 - [x] koa / https://github.com/koajs/koa
