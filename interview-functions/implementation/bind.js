@@ -13,10 +13,14 @@ Function.prototype.binddd = function () {
   const context = Array.prototype.shift.call(arguments)
   const args = arguments
   const self = this
-  return function () {
+  const fNop = function () { }
+  const fBound = function () {
     const realArgs = args.concat(Array.prototype.slice.call(arguments))
-    self.apply(context, realArgs)
+    return self.apply(this instanceof fNop ? this : context, realArgs)
   }
+  fNop.prototype = this.prototype
+  fBound.prototype = new fNop()
+  return fBound
 }
 
 // call

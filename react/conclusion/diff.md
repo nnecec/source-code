@@ -88,7 +88,7 @@ function reconcileSingleTextNode(
   textContent: string,
   lanes: Lanes
 ): Fiber {
-  // 符合复用条件
+  // 符合复用条件: 旧 fiber 的tag 也是 HostText
   if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
     // 复用已有的文本节点，并删除多余节点
     deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
@@ -108,6 +108,8 @@ function reconcileSingleTextNode(
 ---
 
 对于 ReactElement
+
+
 
 ```javascript
 function reconcileSingleElement(
