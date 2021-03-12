@@ -1,8 +1,29 @@
 # Diff
 
+一个 DOM 节点在某一时刻最多会有 4 个节点和他相关。
+
+- `current Fiber`。如果该 DOM 节点已在页面中，`current Fiber` 代表该 DOM 节点对应的 Fiber 节点。
+- `workInProgress Fiber`。如果该 DOM 节点将在本次更新中渲染到页面中，`workInProgress Fiber` 代表该 DOM 节点对应的 Fiber 节点。
+- DOM 节点本身。
+- JSX 对象。即 `ClassComponent` 的 `render` 方法的返回结果，或 `FunctionComponent` 的调用结果。JSX 对象中包含描述 DOM 节点的信息。
+
+`Diff` 算法的本质是对比 1 和 4，生成 2。
+
+为了降低算法复杂度，React 的 `Diff` 会预设三个限制：
+
+1. 只对同级元素进行 `Diff`。如果一个 `DOM` 节点在前后两次更新中跨越了层级，那么 React 不会尝试复用他。
+2. 两个不同类型的元素会产生出不同的树。如果元素由 `div` 变为 `p`，React 会销毁 `div` 及其子孙节点，并新建 `p` 及其子孙节点。
+3. 开发者可以通过 `key` 来表示哪些子元素在不同的渲染下能保持稳定。
+
+## 源码入口
+
 `beginWork`不同的`tag`最后都会调用`reconcileChildren`，该方法即是 diff 算法的入口方法。
 
-通过 `ChildReconciler` 调用到它的`reconcileChildFibers`方法
+通过 `ChildReconciler` 调用到它的`reconcileChildFibers`方法。
+
+当 `newChild` 类型为 `object`、`number`、`string`，代表同级只有一个节点
+
+当 `newChild` 类型为 `Array`，同级有多个节点
 
 ```javascript
 function reconcileChildFibers(
@@ -17,9 +38,18 @@ function reconcileChildFibers(
   if (isObject) {
     switch (newChild.$$typeof) {
       case REACT_ELEMENT_TYPE:
-      // reconcileSingleElement
+        return placeSingleChild(
+          reconcileSingleElement(
+            returnFiber,
+            currentFirstChild,
+            newChild,
+            lanes
+          )
+        );
       case REACT_PORTAL_TYPE:
-      // reconcileSinglePortal
+        return placeSingleChild(
+          reconcileSinglePortal(returnFiber, currentFirstChild, newChild, lanes)
+        );
       case REACT_LAZY_TYPE:
       // reconcileChildFibers
     }
@@ -41,9 +71,7 @@ function reconcileChildFibers(
 }
 ```
 
----
-
-工具方法
+### 工具方法
 
 ```javascript
 // 复用 fiber 节点
@@ -75,11 +103,40 @@ function deleteRemainingChildren(
   }
   return null;
 }
+
+function placeChild(
+  newFiber: Fiber,
+  lastPlacedIndex: number,
+  newIndex: number
+): number {
+  newFiber.index = newIndex;
+  if (!shouldTrackSideEffects) {
+    // Noop.
+    return lastPlacedIndex;
+  }
+  const current = newFiber.alternate;
+
+  // update
+  if (current !== null) {
+    const oldIndex = current.index;
+    // 移动了的节点
+    if (oldIndex < lastPlacedIndex) {
+      // 重新挂载 DOM
+      newFiber.flags |= Placement;
+      return lastPlacedIndex;
+    } else {
+      // 没有移动
+      return oldIndex;
+    }
+  } else {
+    // 新增插入
+    newFiber.flags |= Placement;
+    return lastPlacedIndex;
+  }
+}
 ```
 
----
-
-对于 文本/数字 节点
+### 文本/数字 节点
 
 ```javascript
 function reconcileSingleTextNode(
@@ -105,11 +162,15 @@ function reconcileSingleTextNode(
 }
 ```
 
----
+### ReactElement 节点
 
-对于 ReactElement
+> extends React.Component 元素
 
+从代码可以看出，React 通过先判断 `key` 是否相同（没有赋值的 `key` 值为 `null`）
 
+- 如果 `key` 相同 且 `type` 相同时， `DOM` 节点才能复用。因为是单个节点 diff，所以通过`deleteRemainingChildren`删除多余的 `sibling` 节点。
+- 当 `child !== null` 且 `key` 相同且 `type` 不同时，说明已经找到 fiber 对应的旧 fiber，但 `type` 都已经发生变化不可复用了。执行 `deleteRemainingChildren` 将 `child` 及其兄弟 fiber 都标记删除。
+- 当 `child !== null` 且 `key` 不同时仅将 child 标记删除，继续查找能复用的。
 
 ```javascript
 function reconcileSingleElement(
@@ -119,7 +180,7 @@ function reconcileSingleElement(
   lanes: Lanes
 ): Fiber {
   const key = element.key;
-  let child = currentFirstChild;
+  let child = currentFirstChild; // fiber.child
   // 判断是否存在对应DOM节点
   while (child !== null) {
     // 比较key是否相同
@@ -147,7 +208,7 @@ function reconcileSingleElement(
       deleteRemainingChildren(returnFiber, child); // 当key相同，type 不同，会认为已经把这个节点重新覆盖了，不再查找剩下的是否可以复用，直接删除所有的child，并退出循环
       break;
     } else {
-      // 当key不同，直接删除该child，继续检查剩下的sibling
+      // 当key不同，直接删除该child，继续检查剩下的sibling是否有能够复用的
       deleteChild(returnFiber, child);
     }
     child = child.sibling; // 遍历 child
@@ -172,9 +233,39 @@ function reconcileSingleElement(
 }
 ```
 
----
+### 数组 节点
 
-对于 数组 节点
+- 节点类型及`key`没有变化，其他属性有更新，执行更新逻辑
+- 节点新增，执行新增逻辑
+- 节点减少，执行删除逻辑
+- 节点发生移动
+
+由于 oldChildren 以 fiber 链表形式储存，Diff 算法的整体逻辑会经历两轮遍历：
+
+1. 第一轮遍历：处理更新的节点。
+2. 第二轮遍历：处理剩下的不属于更新的节点。
+
+第一轮遍历结束后有以下几种情况：
+
+1. 如果因为 `key` 无法复用跳出循环，则 `oldChildren` 和 `newChildren` 都没有遍历完毕。
+2. 如果是遍历完成，那么 `oldChildren` 和 `newChildren` 至少有一个已经遍历完了
+
+开始第二轮遍历时(暂时给第一次遍历能复用的结果命名为 `first`)
+
+- 如果 `oldChildren` 和 `newChildren` 都遍历完了，则 diff 结束
+- 如果 `oldChildren` 遍历完了，将剩下的 `newChildren` 依次构建并由第一次遍历的最后一位依次添加
+- 如果 `newChildren` 遍历完了，将剩下的 `oldChildren` 标记 `Deletion`
+- 如果都没有遍历完
+
+  将 `oldChildren` 以 key/index 做键，fiber 做值，生成 `existingChildren`。
+
+  再遍历剩下的 `newChildren`，对比如果发现可以复用则可以添加到`lastPlacedIndex`，只需要比较遍历到的可复用 `oldFiber` 在上次更新时是否也在 `lastPlacedIndex` 对应的 `oldFiber` 后面，就能知道两次更新中这两个节点的相对位置改变没有。
+
+  ```js
+  abcd -> acdb // 遍历新 children， a-c-d 标记不用改变 到 b 时标记移动
+
+  abcd -> dabc // 遍历新 children, d 标记不用改变， a-b-c 标记移动
+  ```
 
 ```js
 function reconcileChildrenArray(
@@ -187,11 +278,15 @@ function reconcileChildrenArray(
   let previousNewFiber: Fiber | null = null;
 
   let oldFiber = currentFirstChild;
-  let lastPlacedIndex = 0; // 最后一个可复用的节点在oldFiber中的位置索引
+  // 最后一个可复用的节点在oldFiber中的位置索引
+  // lastPlacedIndex初始为0，每遍历一个可复用的节点，如果oldIndex >= lastPlacedIndex，则lastPlacedIndex = oldIndex
+  let lastPlacedIndex = 0;
+
   let newIdx = 0; // newChildren 已经处理到哪个位置了
   let nextOldFiber = null; // 下一个需要比对的 oldFiber，在循环结束时会赋值给 oldFiber
 
-  /**  第一轮遍历步骤如下：
+  /**
+   * 第一轮遍历步骤如下：
    * let i = 0，遍历newChildren，将 newChildren[i] 与oldFiber比较，判断DOM节点是否可复用。
    *
    * 如果可复用，i++，继续比较newChildren[i]与oldFiber.sibling，可以复用则继续遍历。
@@ -203,6 +298,7 @@ function reconcileChildrenArray(
    * 如果newChildren遍历完或者oldFiber遍历完（即 oldFiber !== null && newIdx < newChildren.length），跳出遍历，第一轮遍历结束。
    */
   for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+    // 对比同 index 的 oldFiber 和 newFiber
     if (oldFiber.index > newIdx) {
       nextOldFiber = oldFiber;
       oldFiber = null;
@@ -210,7 +306,7 @@ function reconcileChildrenArray(
       nextOldFiber = oldFiber.sibling;
     }
     // 根据key是否相等以及newChild类型判断是否复用节点并更新内容
-    // 返回 null 代表key不同不可复用
+    // updateSlot 比较 oldFiber 和 newChild 的 key 是否相等，相等的话可以复用，不相等的话返回 null。
     const newFiber = updateSlot(
       returnFiber,
       oldFiber,
@@ -219,13 +315,14 @@ function reconcileChildrenArray(
     );
 
     // 当不可复用，跳过该次对比
-    // 即在updateSlot 的比对中，key 不同会跳出遍历
+    // 即在 updateSlot 的比对中，遇到 key 不同会跳出遍历
     if (newFiber === null) {
       if (oldFiber === null) {
         oldFiber = nextOldFiber;
       }
       break;
     }
+    // key 相同 可以复用
     // mount: false / update: true
     if (shouldTrackSideEffects) {
       // 删除剩下的 oldFiber
@@ -233,7 +330,7 @@ function reconcileChildrenArray(
         deleteChild(returnFiber, oldFiber);
       }
     }
-    // 如果 oldFiber
+    // placeChild 方法用于将 newFiber 节点挂载到 DOM 树上，不是真正的挂载，而是设置 Placement 标记位
     lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
     if (previousNewFiber === null) {
       resultingFirstChild = newFiber;
@@ -241,6 +338,8 @@ function reconcileChildrenArray(
       previousNewFiber.sibling = newFiber;
     }
     previousNewFiber = newFiber;
+
+    // 处理下一个 oldFiber
     oldFiber = nextOldFiber;
   }
 
@@ -270,12 +369,12 @@ function reconcileChildrenArray(
   }
 
   // 当不符合以上条件时，即oldChildren 和 newChildren 都有剩余时
-  // 遍历 oldChildren 将 oldFiber 插入到对应的 key/index 中，最后返回集合 existingChildren
+  // 遍历 oldChildren 将 oldFiber 插入到对应的 key/index(没有传key) 中，最后返回集合 existingChildren<Map>
   const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
 
   // 遍历剩下的 newChildren
   for (; newIdx < newChildren.length; newIdx++) {
-    // 类似 updateSlot, 将 oldFiber 与 newFiber 比对 判断是否能复用
+    // 类似 updateSlot, 将 oldFiber[key] 与 newFiber[key] 比对 判断是否能复用
     const newFiber = updateFromMap(
       existingChildren,
       returnFiber,
@@ -283,7 +382,7 @@ function reconcileChildrenArray(
       newChildren[newIdx],
       lanes
     );
-    // 能复用
+    // 找到能复用的节点
     if (newFiber !== null) {
       if (shouldTrackSideEffects) {
         if (newFiber.alternate !== null) {
