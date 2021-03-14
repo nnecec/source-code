@@ -1,3 +1,10 @@
+/**
+ *  二分查找
+ *
+ * @param {*} nums 有序数组
+ * @param {*} target
+ * @returns
+ */
 function binarySearch (nums, target) {
   let start = 0
   let end = nums.length - 1

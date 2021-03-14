@@ -56,15 +56,12 @@ Fiber Reconciler 作为 React 的默认调度器，核心数据结构就是由 F
 
 ```javascript
 export type Fiber = {|
-  // FiberNode 组件类型 -> ReactWorkTags.js
-  tag: WorkTag,
-  // Unique identifier of this child.
+  // 作为静态数据结构的属性
+  tag: WorkTag, //  FiberNode 组件类型 -> ReactWorkTags.js 如FunctionComponent, ClassComponent, HostComponent
   key: null | string,
-  // The value of element.type which is used to preserve the identity during
-  // reconciliation of this child.
-  elementType: any,
+  elementType: any, // 约等于 type
   // 异步加载的组件解析后的类型
-  type: any,
+  type: any, // FunctionComponent=function , ClassComponent = Class, HostComponent = div
   // Node储存空间，通过 stateNode 绑定如 FiberNode 对应的 Dom、FiberRoot、ReactComponent 实例
   // 比如，
   // DOM组件对应DOM节点实例
@@ -72,6 +69,8 @@ export type Fiber = {|
   // FunctionComponent没有实例，所以stateNode值为null
   // state更新了或props更新了均会更新到stateNode上
   stateNode: any,
+
+  // 用于连接其他Fiber节点形成Fiber树
   // 指向该对象在Fiber节点树中的parent，用来在处理完该节点后返回
   return: Fiber | null,
   // 指向自己的第一个子节点
@@ -79,11 +78,9 @@ export type Fiber = {|
   // 指向自己的兄弟结构
   sibling: Fiber | null,
   index: number,
-
-  // The ref last used to attach this node.
-  // I'll avoid adding an owner field for prod and model that as functions.
   ref: null | (((handle: mixed) => void) & { _stringRef: ?string }) | RefObject,
 
+  // 动态工作单元
   // 即将到来的新 props，即 nextProps
   pendingProps: any, // This type will be more specific once we overload the tag.
   // 上一次渲染完成后的 props，即 props
@@ -118,6 +115,7 @@ export type Fiber = {|
   firstEffect: Fiber | null,
   lastEffect: Fiber | null,
 
+  // 调度优先级
   lanes: Lanes,
   childLanes: Lanes,
 
@@ -125,21 +123,6 @@ export type Fiber = {|
   // 我们称他为`current <==> workInProgress`
   // 在渲染完成之后他们会交换位置
   alternate: Fiber | null,
-
-  actualDuration?: number,
-  actualStartTime?: number,
-  selfBaseDuration?: number,
-  treeBaseDuration?: number,
-
-  // __DEV__ only
-  _debugID?: number,
-  _debugSource?: Source | null,
-  _debugOwner?: Fiber | null,
-  _debugIsCurrentlyTiming?: boolean,
-  _debugNeedsRemount?: boolean,
-
-  // Used to verify that the order of hooks does not change between renders.
-  _debugHookTypes?: Array<HookType> | null,
 |};
 ```
 

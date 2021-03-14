@@ -14,8 +14,8 @@ export default function applyMiddleware (...middlewares) {
     const store = createStore(...args)
     let dispatch = () => {
       throw new Error(
-        `Dispatching while constructing your middleware is not allowed. ` +
-				`Other middleware would not be applied to this dispatch.`
+        'Dispatching while constructing your middleware is not allowed. ' +
+        'Other middleware would not be applied to this dispatch.'
       )
     }
 
@@ -33,3 +33,17 @@ export default function applyMiddleware (...middlewares) {
     }
   }
 }
+// enhancer = applyMiddleware(Logger, Test)
+// return store = enhancer(createStore)(reducer, preloadedState)
+
+// const plugin = (store) => (next) => (action) => {
+//   console.info('start');
+//   let result = next(action);
+//   console.info('end');
+// };
+
+// dispatch = action => {
+//   //...... before
+//   f2(f3(....fn(store.dispatch))(action);
+//   //...... after
+// }

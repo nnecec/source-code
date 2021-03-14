@@ -215,6 +215,7 @@ function reconcileSingleElement(
   }
 
   // 当没找到可复用的节点时，重新创建
+  // mount 也是该流程
   if (element.type === REACT_FRAGMENT_TYPE) {
     const created = createFiberFromFragment(
       element.props.children,
@@ -225,6 +226,8 @@ function reconcileSingleElement(
     created.return = returnFiber;
     return created;
   } else {
+    // createFiberFromElement 通过 ReactElement 创建 fiber 节点
+    // 根据 type 类型 创建对应 fiber 节点
     const created = createFiberFromElement(element, returnFiber.mode, lanes);
     created.ref = coerceRef(returnFiber, currentFirstChild, element);
     created.return = returnFiber;

@@ -1,8 +1,8 @@
 'use strict'
 
-const Promise = require('../index')
+const Promise = require('../mini-promise')
+// const Promise = require('../index')
 // const Promise = require('es6-promise').Promise
-// const Promise = require('bluebird')
 // const Promise = require('bluebird')
 // const Promise = require('lie')
 

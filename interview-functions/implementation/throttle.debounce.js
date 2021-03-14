@@ -21,3 +21,4 @@ function debounce (func, wait) {
     }, wait)
   }
 }
+const a = debounce(() => { })
