@@ -99,7 +99,7 @@ function pushEffect(tag, create, destroy, deps) {
     if (lastEffect === null) {
       componentUpdateQueue.lastEffect = effect.next = effect;
     } else {
-      // 将 lastEffect 指向最新的 effect ，最新的 effect 指向第一个effect
+      // 将 lastEffect 指向最新的 effect ，最新的 effect.next 指向第一个effect
       const firstEffect = lastEffect.next;
       lastEffect.next = effect;
       effect.next = firstEffect;

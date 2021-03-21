@@ -1,14 +1,12 @@
-function curry (func, args = []) {
-  const len = func.length
-
-  return function () {
-    const _args = [].slice.apply(arguments)
-    args.push(..._args)
-
-    if (args.length < len) {
-      return curry.call(this, func, args)
-    }
-
-    return func.apply(this, args)
-  }
+const curry = (fn, arr = []) => {
+  return (...args) => (
+    arg => arg.length === fn.length
+      ? fn(...arg)
+      : curry(fn, arg)
+  )([...arr, ...args])
 }
+
+const sum = (a, b, c) => a + b + c
+const curriedSum = curry(sum)
+const res = curriedSum(1)(2)(3)
+console.log(res) // 6
