@@ -1,26 +1,5 @@
-# source code
+# I'm rich
 
-Read open source code.
+![I'm rich.](https://media1.tenor.com/images/87590eebf65985a12204ee7183f3b245/tenor.gif)
 
-## JavaScript
-
-- [x] promise
-
-## React
-
-- [x] react / https://github.com/facebook/react
-- [x] redux / https://github.com/reduxjs/redux
-- [x] react-redux / https://github.com/reduxjs/react-redux
-- [x] koa / https://github.com/koajs/koa
-- [ ] mobx / https://github.com/mobxjs/mobx
-- [x] wouter / https://github.com/molefrog/wouter
-- [x] react-loadable / https://github.com/jamiebuilds/react-loadable
-
-## Node.js
-
-- [x] minipack / https://github.com/ronami/minipack
-- [ ] webpack / https://github.com/webpack/webpack
-- [ ] node-fs-extra / https://github.com/jprichardson/node-fs-extra
-- [ ] fastify / https://github.com/fastify/fastify
-- [ ] express / https://github.com/expressjs/express
-- [ ] execa / https://github.com/sindresorhus/execa
+Read source code, write algorithm and functions. Try to be Batman.
