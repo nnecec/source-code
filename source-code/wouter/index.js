@@ -10,7 +10,7 @@ import {
   isValidElement,
   cloneElement,
   createElement as h
-} from './react-deps.js'
+} from './react-deps.js.js'
 
 /*
  * Part 1, Hooks API: useRouter, useRoute and useLocation

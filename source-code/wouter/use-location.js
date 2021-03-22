@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from './react-deps.js'
+import { useEffect, useRef, useState, useCallback } from './react-deps.js.js'
 
 export default ({ base = '' } = {}) => {
   const [path, update] = useState(currentPathname(base)) // 获取浏览器当前地址

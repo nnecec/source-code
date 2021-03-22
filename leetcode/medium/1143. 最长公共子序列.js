@@ -13,7 +13,6 @@ const longestCommonSubsequence = function (text1, text2) {
   const m = text1.length
   const n = text2.length
   memo = twoDimensional(m, n, -1)
-  console.log(memo)
   return dp(text1, 0, text2, 0)
 }
 
