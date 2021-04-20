@@ -10,7 +10,6 @@ const eraseOverlapIntervals = function (intervals) {
 
 const overlapIntervals = function (intervals) {
   const newIntervals = intervals.sort((a, b) => a[1] - b[1])
-  console.log(newIntervals)
 
   let prev = newIntervals[0]
 

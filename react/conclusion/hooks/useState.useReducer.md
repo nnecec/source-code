@@ -124,6 +124,7 @@ function dispatchAction(fiber, queue, action) {
     didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate = true;
 
     // ...
+    // 将 update 添加到队列
   } else {
     if (
       fiber.lanes === NoLanes &&

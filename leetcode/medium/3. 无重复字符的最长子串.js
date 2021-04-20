@@ -2,7 +2,7 @@
  * @param {string} s
  * @return {number}
  */
-var lengthOfLongestSubstring = function (s) {
+const lengthOfLongestSubstring = function (s) {
   if (!s.length) return 0
   let result = 1
   for (let i = 0; i < s.length; i++) {
@@ -18,4 +18,4 @@ var lengthOfLongestSubstring = function (s) {
   return result
 }
 
-lengthOfLongestSubstring('au')
+lengthOfLongestSubstring('auaud')
