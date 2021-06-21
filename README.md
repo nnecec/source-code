@@ -1,7 +1,7 @@
 # I'm rich
 
-![I'm rich.](./rich.gif)
-
-Read source code, write algorithm and functions.
+Reading source code, learning language and algorithm, exploring the unknown.
 
 Try to be Batman.
+
+![I'm rich.](./rich.gif)

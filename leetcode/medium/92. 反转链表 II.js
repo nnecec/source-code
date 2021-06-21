@@ -23,14 +23,14 @@ const reverseBetween = function (head, left, right) {
 
 let successor = null
 
+// 反转前 N 个节点
 const reverseN = function (head, right) {
-  if (!head || !head.next) return head
-
   if (right === 1) {
     successor = head.next
     return head
   }
 
+  // n 减小到1时，执行上一行代码，将第n+1个节点赋值给 successor
   const last = reverseN(head.next, right - 1)
   head.next.next = head
   head.next = successor

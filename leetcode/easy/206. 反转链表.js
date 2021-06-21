@@ -13,10 +13,10 @@
  */
 const reverseList = function (head) {
   if (!head || head.next === null) return head
-  const last = reverseList(head.next)
 
+  // 直到最后一个节点 会执行上一行 返回 head，其他节点都是调换顺序
+  const last = reverseList(head.next)
   head.next.next = head
   head.next = null
-
   return last
 }
