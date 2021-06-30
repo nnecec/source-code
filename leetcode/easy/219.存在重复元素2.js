@@ -5,7 +5,7 @@
  * @param {number} k
  * @return {boolean}
  */
-var containsNearbyDuplicate = function (nums, k) {
+const containsNearbyDuplicate = function (nums, k) {
   const _cache = {}
   for (let i = 0; i < nums.length; i++) {
     const num = nums[i]

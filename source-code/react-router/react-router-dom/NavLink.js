@@ -58,11 +58,11 @@ const NavLink = forwardRef(
 
           const match = escapedPath
             ? matchPath(currentLocation.pathname, {
-                path: escapedPath,
-                exact,
-                sensitive,
-                strict
-              })
+              path: escapedPath,
+              exact,
+              sensitive,
+              strict
+            })
             : null
           const isActive = !!(isActiveProp
             ? isActiveProp(match, currentLocation)

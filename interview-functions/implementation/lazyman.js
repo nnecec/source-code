@@ -1,9 +1,12 @@
 class LazyMan {
   constructor () {
     this.queue = []
-    setTimeout(() => {
-      this.next()
-    }, 0)
+    setTimeout(
+      () => {
+        this.next()
+      },
+      0
+    )
   }
 
   next () {
@@ -21,13 +24,16 @@ class LazyMan {
 
   sleep (millisecond) {
     this.queue.push(() => {
-      setTimeout(() => {
-        console.log(`task: sleep ${millisecond}`)
-        this.next()
-      }, millisecond)
+      setTimeout(
+        () => {
+          console.log(`task: sleep ${millisecond}`)
+          this.next()
+        },
+        millisecond
+      )
     })
     return this
   }
 }
 
-new LazyMan().eat().sleep(2000).eat().sleep(2000)
+new LazyMan().eat().sleep(2_000).eat().sleep(2_000)

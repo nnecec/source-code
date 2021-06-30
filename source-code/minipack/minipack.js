@@ -52,25 +52,31 @@ function createAsset (filename) {
   //
   // The AST contains a lot of information about our code. We can query it to
   // understand what our code is trying to do.
-  const ast = babylon.parse(content, {
-    sourceType: 'module'
-  })
+  const ast = babylon.parse(
+    content,
+    {
+      sourceType: 'module'
+    }
+  )
 
   // This array will hold the relative paths of modules this module depends on.
   const dependencies = []
 
   // We traverse the AST to try and understand which modules this module depends
   // on. To do that, we check every import declaration in the AST.
-  traverse(ast, {
-    // EcmaScript modules are fairly easy because they are static. This means
-    // that you can't import a variable, or conditionally import another module.
-    // Every time we see an import statement we can just count its value as a
-    // dependency.
-    ImportDeclaration: ({ node }) => {
-      // We push the value that we import into the dependencies array.
-      dependencies.push(node.source.value)
+  traverse(
+    ast,
+    {
+      // EcmaScript modules are fairly easy because they are static. This means
+      // that you can't import a variable, or conditionally import another module.
+      // Every time we see an import statement we can just count its value as a
+      // dependency.
+      ImportDeclaration: ({ node }) => {
+        // We push the value that we import into the dependencies array.
+        dependencies.push(node.source.value)
+      }
     }
-  })
+  )
 
   // We also assign a unique identifier to this module by incrementing a simple
   // counter.
@@ -83,9 +89,13 @@ function createAsset (filename) {
   // The `presets` option is a set of rules that tell Babel how to transpile
   // our code. We use `babel-preset-env` to transpile our code to something
   // that most browsers can run.
-  const { code } = transformFromAst(ast, null, {
-    presets: ['env']
-  })
+  const { code } = transformFromAst(
+    ast,
+    null,
+    {
+      presets: ['env']
+    }
+  )
 
   // Return all information about this module.
   return {
@@ -125,7 +135,7 @@ function createGraph (entry) {
     const dirname = path.dirname(asset.filename)
 
     // We iterate over the list of relative paths to its dependencies.
-    asset.dependencies.forEach(relativePath => {
+    asset.dependencies.forEach((relativePath) => {
       // Our `createAsset()` function expects an absolute filename. The
       // dependencies array is an array of relative paths. These paths are
       // relative to the file that imported them. We can turn the relative path
@@ -168,7 +178,7 @@ function bundle (graph) {
   // we'll pass to it as a parameter. Please note that this string that we're
   // building gets wrapped by two curly braces ({}) so for every module, we add
   // a string of this format: `key: value,`.
-  graph.forEach(mod => {
+  graph.forEach((mod) => {
     // Every module in the graph has an entry in this object. We use the
     // module's id as the key and an array for the value (we have 2 values for
     // every module).

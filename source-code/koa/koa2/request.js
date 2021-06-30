@@ -209,9 +209,7 @@ module.exports = {
   get ips () {
     const proxy = this.app.proxy
     const val = this.get('X-Forwarded-For')
-    return proxy && val
-      ? val.split(/\s*,\s*/)
-      : []
+    return proxy && val ? val.split(/\s*,\s*/) : []
   },
 
   /**
@@ -254,10 +252,7 @@ module.exports = {
     const offset = this.app.subdomainOffset
     const hostname = this.hostname
     if (net.isIP(hostname)) return []
-    return hostname
-      .split('.')
-      .reverse()
-      .slice(offset)
+    return hostname.split('.').reverse().slice(offset)
   },
 
   /**
@@ -476,10 +471,6 @@ module.exports = {
    */
 
   toJSON () {
-    return only(this, [
-      'method',
-      'url',
-      'header'
-    ])
+    return only(this, ['method', 'url', 'header'])
   }
 }

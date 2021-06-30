@@ -16,10 +16,7 @@ const isObject = (obj) => {
 
 // 判断是否为 thenable
 const isThenable = (obj) => {
-  return (
-    isFunction(obj) ||
-    isObject(obj)
-  ) && 'then' in obj
+  return (isFunction(obj) || isObject(obj)) && 'then' in obj
 }
 
 // 判断是否为 Promise
@@ -89,9 +86,12 @@ const transition = (promise, state, result) => {
   promise.result = result
 
   // 2.3.3 当状态变更时，异步清空所有 callbacks
-  setTimeout(() => {
-    handleCallbacks(promise.callbacks, state, result)
-  }, 0)
+  setTimeout(
+    () => {
+      handleCallbacks(promise.callbacks, state, result)
+    },
+    0
+  )
 }
 
 // 2.6 一些特殊的 value 被 resolve 时，要做特殊处理。
@@ -135,8 +135,8 @@ const Promise = function (f) {
   this.callbacks = []
 
   // 2.2 构造 onFulfilled 来切换到 fulfilled，构造 onRejected 来切换到 rejected 状态
-  const onFulfilled = value => transition(this, FULFILLED, value)
-  const onRejected = reason => transition(this, REJECTED, reason)
+  const onFulfilled = (value) => transition(this, FULFILLED, value)
+  const onRejected = (reason) => transition(this, REJECTED, reason)
 
   // 2.3 配合 ignore 来保证 resolve/reject 只有一次调用作用
   let ignore = false
@@ -182,9 +182,12 @@ const then = function (onFulfilled, onRejected) {
     } else {
       // 3.5 如果不是，就扔个 handleCallback 去处理
       // 至于为什么用 setTimeout？因为我们模拟不了微任务，那就用宏任务去解决吧
-      setTimeout(() => {
-        handleCallback(callback, this.state, this.result)
-      }, 0)
+      setTimeout(
+        () => {
+          handleCallback(callback, this.state, this.result)
+        },
+        0
+      )
     }
   })
 }

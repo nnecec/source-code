@@ -3,11 +3,12 @@
 	Author Tobias Koppers @sokra
 */
 'use strict'
-
 const util = require('util')
 
-const deprecateContext = util.deprecate(() => { },
-  'Hook.context is deprecated and will be removed')
+const deprecateContext = util.deprecate(
+  () => {},
+  'Hook.context is deprecated and will be removed'
+)
 
 const CALL_DELEGATE = function (...args) {
   this.call = this._createCall('sync')
@@ -51,7 +52,7 @@ class Hook {
       taps: this.taps,
       interceptors: this.interceptors,
       args: this._args,
-      type: type
+      type
     })
   }
 
@@ -99,7 +100,7 @@ class Hook {
   }
 
   withOptions (options) {
-    const mergeOptions = opt =>
+    const mergeOptions = (opt) =>
       Object.assign({}, options, typeof opt === 'string' ? { name: opt } : opt)
 
     return {
@@ -107,9 +108,9 @@ class Hook {
       tap: (opt, fn) => this.tap(mergeOptions(opt), fn),
       tapAsync: (opt, fn) => this.tapAsync(mergeOptions(opt), fn),
       tapPromise: (opt, fn) => this.tapPromise(mergeOptions(opt), fn),
-      intercept: interceptor => this.intercept(interceptor),
+      intercept: (interceptor) => this.intercept(interceptor),
       isUsed: () => this.isUsed(),
-      withOptions: opt => this.withOptions(mergeOptions(opt))
+      withOptions: (opt) => this.withOptions(mergeOptions(opt))
     }
   }
 

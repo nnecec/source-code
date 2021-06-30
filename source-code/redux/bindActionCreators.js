@@ -30,7 +30,7 @@ export default function bindActionCreators (actionCreators, dispatch) {
       `bindActionCreators expected an object or a function, instead received ${
         actionCreators === null ? 'null' : typeof actionCreators
       }. ` +
-			`Did you write "import ActionCreators from" instead of "import * as ActionCreators from"?`
+			'Did you write "import ActionCreators from" instead of "import * as ActionCreators from"?'
     )
   }
   // action creators 为 函数组对象时，获取 action creators keys

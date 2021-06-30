@@ -8,7 +8,7 @@ const lengthOfLongestSubstring = function (s) {
   for (let i = 0; i < s.length; i++) {
     let j = i + 1
     while (!s.slice(i, j).includes(s[j]) && j < s.length) {
-      if ((j - i + 1) > result) {
+      if (j - i + 1 > result) {
         result = j - i + 1
       }
       j++

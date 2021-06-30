@@ -27,7 +27,7 @@ function traverse (right) {
   // 比较完成后，再进入上一个traverse 方法，right 变为上次调用的参数，即倒数第二个节点， left 在最后一个节点运算后向后移动了一个next ，此时变为 第二个和倒数第二个对比
   // 以此类推，太强了。
 
-  res = res && (right.val === left.val)
+  res = res && right.val === left.val
   left = left.next
   return res
 }

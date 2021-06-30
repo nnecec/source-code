@@ -10,10 +10,10 @@ function isWebpackReady (getModuleIds) {
     return false
   }
 
-  return getModuleIds().every(moduleId => {
+  return getModuleIds().every((moduleId) => {
     return (
       typeof moduleId !== 'undefined' &&
-      typeof __webpack_modules__[moduleId] !== 'undefined'
+			typeof __webpack_modules__[moduleId] !== 'undefined'
     )
   })
 }
@@ -22,22 +22,22 @@ function load (loader) {
   const promise = loader() // 执行 () => import('./my-component') 获取 promise (import https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/import#%E5%8A%A8%E6%80%81import)
 
   const state = {
-    loading: true, // 状态 loading
+    loading: true,
+    // 状态 loading
     loaded: null,
     error: null
   }
 
-  state.promise = promise // 处理 import promise
-    .then(loaded => {
-      state.loading = false
-      state.loaded = loaded
-      return loaded
-    })
-    .catch(err => {
-      state.loading = false
-      state.error = err
-      throw err
-    })
+  state.promise = promise.then((loaded) => {
+    // 处理 import promise
+    state.loading = false
+    state.loaded = loaded
+    return loaded
+  }).catch((err) => {
+    state.loading = false
+    state.error = err
+    throw err
+  })
 
   return state
 }
@@ -52,7 +52,7 @@ function loadMap (obj) {
   const promises = []
 
   try {
-    Object.keys(obj).forEach(key => {
+    Object.keys(obj).forEach((key) => {
       const result = load(obj[key])
 
       if (!result.loading) {
@@ -64,27 +64,23 @@ function loadMap (obj) {
 
       promises.push(result.promise)
 
-      result.promise
-        .then(res => {
-          state.loaded[key] = res
-        })
-        .catch(err => {
-          state.error = err
-        })
+      result.promise.then((res) => {
+        state.loaded[key] = res
+      }).catch((err) => {
+        state.error = err
+      })
     })
   } catch (err) {
     state.error = err
   }
 
-  state.promise = Promise.all(promises)
-    .then(res => {
-      state.loading = false
-      return res
-    })
-    .catch(err => {
-      state.loading = false
-      throw err
-    })
+  state.promise = Promise.all(promises).then((res) => {
+    state.loading = false
+    return res
+  }).catch((err) => {
+    state.loading = false
+    throw err
+  })
 
   return state
 }
@@ -99,7 +95,8 @@ function render (loaded, props) {
 
 // 返回一个组件 组件中会获取 import(xx) ，根据 import 的状态显示 delay loading 等状态
 function createLoadableComponent (loadFn, options) {
-  if (!options.loading) { // loading 配置项
+  if (!options.loading) {
+    // loading 配置项
     throw new Error('react-loadable requires a `loading` component')
   }
 
@@ -109,7 +106,7 @@ function createLoadableComponent (loadFn, options) {
       loading: null,
       delay: 200,
       timeout: null,
-      render: render,
+      render,
       webpack: null,
       modules: null
     },
@@ -149,110 +146,118 @@ function createLoadableComponent (loadFn, options) {
       }
     }
 
-    static contextTypes = {
-      loadable: PropTypes.shape({
-        report: PropTypes.func.isRequired
-      })
-    };
+		static contextTypes = {
+		  loadable: PropTypes.shape({
+		    report: PropTypes.func.isRequired
+		  })
+		};
 
-    // 直接 import 组件
-    static preload () {
-      return init()
-    }
+		// 直接 import 组件
+		static preload () {
+		  return init()
+		}
 
-    componentWillMount () {
-      this._mounted = true // 标记是否 mount LoadableComponent
-      this._loadModule() // 加载 import 的 module
-    }
+		componentWillMount () {
+		  this._mounted = true // 标记是否 mount LoadableComponent
+		  this._loadModule() // 加载 import 的 module
+		}
 
-    // 加载 import 组件
-    _loadModule () {
-      if (this.context.loadable && Array.isArray(opts.modules)) {
-        opts.modules.forEach(moduleName => {
-          this.context.loadable.report(moduleName)
-        })
-      }
+		// 加载 import 组件
+		_loadModule () {
+		  if (this.context.loadable && Array.isArray(opts.modules)) {
+		    opts.modules.forEach((moduleName) => {
+		      this.context.loadable.report(moduleName)
+		    })
+		  }
 
-      // 没有 loading 报错
-      if (!res.loading) {
-        return
-      }
+		  // 没有 loading 报错
+		  if (!res.loading) {
+		    return
+		  }
 
-      // 如果有 delay 则在 delay 时间之后 设置 pastDelay 为 true
-      if (typeof opts.delay === 'number') {
-        if (opts.delay === 0) {
-          this.setState({ pastDelay: true })
-        } else {
-          this._delay = setTimeout(() => {
-            this.setState({ pastDelay: true })
-          }, opts.delay)
-        }
-      }
+		  // 如果有 delay 则在 delay 时间之后 设置 pastDelay 为 true
+		  if (typeof opts.delay === 'number') {
+		    if (opts.delay === 0) {
+		      this.setState({ pastDelay: true })
+		    } else {
+		      this._delay = setTimeout(
+		        () => {
+		          this.setState({ pastDelay: true })
+		        },
+		        opts.delay
+		      )
+		    }
+		  }
 
-      // 如果有 timeout 则在 timeout 之后设置 timeout 为 true
-      if (typeof opts.timeout === 'number') {
-        this._timeout = setTimeout(() => {
-          this.setState({ timedOut: true })
-        }, opts.timeout)
-      }
+		  // 如果有 timeout 则在 timeout 之后设置 timeout 为 true
+		  if (typeof opts.timeout === 'number') {
+		    this._timeout = setTimeout(
+		      () => {
+		        this.setState({ timedOut: true })
+		      },
+		      opts.timeout
+		    )
+		  }
 
-      const update = () => {
-        if (!this._mounted) {
-          return
-        }
+		  const update = () => {
+		    if (!this._mounted) {
+		      return
+		    }
 
-        this.setState({
-          error: res.error,
-          loaded: res.loaded,
-          loading: res.loading
-        })
+		    this.setState({
+		      error: res.error,
+		      loaded: res.loaded,
+		      loading: res.loading
+		    })
 
-        this._clearTimeouts()
-      }
+		    this._clearTimeouts()
+		  }
 
-      // 根据 import 进度更新显示状态
-      res.promise
-        .then(() => {
-          update()
-        })
-        .catch(err => {
-          update()
-        })
-    }
+		  // 根据 import 进度更新显示状态
+		  res.promise.then(() => {
+		    update()
+		  }).catch((err) => {
+		    update()
+		  })
+		}
 
-    componentWillUnmount () {
-      this._mounted = false
-      this._clearTimeouts()
-    }
+		componentWillUnmount () {
+		  this._mounted = false
+		  this._clearTimeouts()
+		}
 
-    _clearTimeouts () {
-      clearTimeout(this._delay)
-      clearTimeout(this._timeout)
-    }
+		_clearTimeouts () {
+		  clearTimeout(this._delay)
+		  clearTimeout(this._timeout)
+		}
 
-    // 重新加载
-    retry = () => {
-      this.setState({ error: null, loading: true, timedOut: false })
-      res = loadFn(opts.loader)
-      this._loadModule()
-    };
+		// 重新加载
+		retry = () => {
+		  this.setState({ error: null, loading: true, timedOut: false })
+		  res = loadFn(opts.loader)
+		  this._loadModule()
+		};
 
-    render () {
-      // 显示 loading
-      if (this.state.loading || this.state.error) {
-        return React.createElement(opts.loading, {
-          isLoading: this.state.loading,
-          pastDelay: this.state.pastDelay,
-          timedOut: this.state.timedOut,
-          error: this.state.error,
-          retry: this.retry
-        })
-      } else if (this.state.loaded) { // 使用 render 方法渲染加载完成的组件
-        return opts.render(this.state.loaded, this.props)
-      } else {
-        return null
-      }
-    }
+		render () {
+		  // 显示 loading
+		  if (this.state.loading || this.state.error) {
+		    return React.createElement(
+		      opts.loading,
+		      {
+		        isLoading: this.state.loading,
+		        pastDelay: this.state.pastDelay,
+		        timedOut: this.state.timedOut,
+		        error: this.state.error,
+		        retry: this.retry
+		      }
+		    )
+		  } else if (this.state.loaded) {
+		    // 使用 render 方法渲染加载完成的组件
+		    return opts.render(this.state.loaded, this.props)
+		  } else {
+		    return null
+		  }
+		}
   }
 }
 
@@ -275,27 +280,27 @@ function LoadableMap (opts) {
 Loadable.Map = LoadableMap
 
 class Capture extends React.Component {
-  static propTypes = {
-    report: PropTypes.func.isRequired
-  };
+	static propTypes = {
+	  report: PropTypes.func.isRequired
+	};
 
-  static childContextTypes = {
-    loadable: PropTypes.shape({
-      report: PropTypes.func.isRequired
-    }).isRequired
-  };
+	static childContextTypes = {
+	  loadable: PropTypes.shape({
+	    report: PropTypes.func.isRequired
+	  }).isRequired
+	};
 
-  getChildContext () {
-    return {
-      loadable: {
-        report: this.props.report
-      }
-    }
-  }
+	getChildContext () {
+	  return {
+	    loadable: {
+	      report: this.props.report
+	    }
+	  }
+	}
 
-  render () {
-    return React.Children.only(this.props.children)
-  }
+	render () {
+	  return React.Children.only(this.props.children)
+	}
 }
 
 Loadable.Capture = Capture

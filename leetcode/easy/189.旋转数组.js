@@ -5,7 +5,7 @@
  * @param {number} k
  * @return {number[]} nums
  */
-var rotate1 = function (nums, k) {
+const rotate1 = function (nums, k) {
   while (k--) {
     const last = nums.pop()
     nums.unshift(last)
@@ -15,7 +15,7 @@ var rotate1 = function (nums, k) {
 
 console.log(rotate1([1, 2, 3, 4, 5, 6, 7], 3)) // [5,6,7,1,2,3,4]
 
-var rotate2 = function (nums, k) {
+const rotate2 = function (nums, k) {
   const len = nums.length
   nums = nums.slice(len - k, len).concat(nums.slice(0, len - k))
 }

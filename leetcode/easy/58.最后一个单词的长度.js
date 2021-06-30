@@ -1,10 +1,10 @@
 /**
  * https://leetcode-cn.com/problems/length-of-last-word/
- * 
+ *
  * @param {string} s
  * @return {number}
  */
-var lengthOfLastWord = function (s) {
+const lengthOfLastWord = function (s) {
   const arr = s.split(' ')
   for (let i = arr.length - 1; i >= 0; i--) {
     if (arr[i]) {
@@ -12,4 +12,4 @@ var lengthOfLastWord = function (s) {
     }
   }
   return 0
-};
+}

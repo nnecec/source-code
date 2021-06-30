@@ -1,12 +1,12 @@
 /**
  * initialize your data structure here.
  */
-var MinStack = function () {
+const MinStack = function () {
   this.stack = []
   this.minStack = []
-};
+}
 
-/** 
+/**
  * @param {number} x
  * @return {void}
  */
@@ -15,7 +15,7 @@ MinStack.prototype.push = function (x) {
   if (!this.minStack.length || x <= this.minStack[0]) {
     this.minStack.unshift(x)
   }
-};
+}
 
 /**
  * @return {void}
@@ -25,21 +25,21 @@ MinStack.prototype.pop = function () {
   if (popNum === this.minStack[0]) {
     this.minStack.shift()
   }
-};
+}
 
 /**
  * @return {number}
  */
 MinStack.prototype.top = function () {
   return this.stack[0]
-};
+}
 
 /**
  * @return {number}
  */
 MinStack.prototype.getMin = function () {
   return this.minStack[0]
-};
+}
 
 /**
  * Your MinStack object will be instantiated and called as such:

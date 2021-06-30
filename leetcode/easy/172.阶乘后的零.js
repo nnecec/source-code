@@ -6,7 +6,7 @@
  * @param {number} n
  * @return {number}
  */
-var trailingZeroes = function (n) {
+const trailingZeroes = function (n) {
   let count = 0
   while (n >= 5) {
     count += parseInt(n / 5)

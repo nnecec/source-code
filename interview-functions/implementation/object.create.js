@@ -1,5 +1,5 @@
 function create (obj) {
-  const F = function () { }
+  const F = function () {}
   F.prototype = obj
   return new F()
 }

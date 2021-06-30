@@ -1,9 +1,9 @@
 const curry = (fn, arr = []) => {
-  return (...args) => (
-    arg => arg.length === fn.length
-      ? fn(...arg)
-      : curry(fn, arg)
-  )([...arr, ...args])
+  return (...args) =>
+    ((arg) => arg.length === fn.length ? fn(...arg) : curry(fn, arg))([
+      ...arr,
+      ...args
+    ])
 }
 
 const sum = (a, b, c) => a + b + c

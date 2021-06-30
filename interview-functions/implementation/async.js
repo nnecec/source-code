@@ -16,11 +16,14 @@ function async (generator) {
         if (done) {
           return resolve(value)
         } else {
-          return Promise.resolve(value).then((value) => {
-            step('next', value)
-          }, (err) => {
-            step('throw', err)
-          })
+          return Promise.resolve(value).then(
+            (value) => {
+              step('next', value)
+            },
+            (err) => {
+              step('throw', err)
+            }
+          )
         }
       }
       step('next')
@@ -35,7 +38,7 @@ function async (generator) {
  */
 
 const getData = () =>
-  new Promise(resolve => setTimeout(() => resolve('data'), 1000))
+  new Promise((resolve) => setTimeout(() => resolve('data'), 1_000))
 
 // 这样的一个async函数 应该再1秒后打印data
 async function test () {
@@ -89,6 +92,6 @@ function asyncToGenerator (generatorFunc) {
 }
 
 const testGAsync = asyncToGenerator(testG)
-testGAsync().then(result => {
+testGAsync().then((result) => {
   console.log(result)
 })

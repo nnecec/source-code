@@ -17,7 +17,7 @@ const longestPalindrome = function (s) {
       } else if (l === 1) {
         dp[i][j] = s.charAt(i) === s.charAt(j)
       } else {
-        dp[i][j] = (s.charAt(i) === s.charAt(j) && dp[i + 1][j - 1])
+        dp[i][j] = s.charAt(i) === s.charAt(j) && dp[i + 1][j - 1]
       }
       if (dp[i][j] && l + 1 > result.length) {
         result = s.substring(i, i + l + 1)

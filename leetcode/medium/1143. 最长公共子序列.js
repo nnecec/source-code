@@ -32,10 +32,7 @@ function dp (s1, i, s2, j) {
   if (s1.charAt(i) === s2.charAt(j)) {
     memo[i][j] = 1 + dp(s1, i + 1, s2, j + 1)
   } else {
-    memo[i][j] = Math.max(
-      dp(s1, i + 1, s2, j),
-      dp(s1, i, s2, j + 1)
-    )
+    memo[i][j] = Math.max(dp(s1, i + 1, s2, j), dp(s1, i, s2, j + 1))
   }
   return memo[i][j]
 }

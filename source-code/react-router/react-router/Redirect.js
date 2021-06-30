@@ -22,11 +22,11 @@ function Redirect ({ computedMatch, to, push = false }) {
         const location = createLocation(
           computedMatch
             ? typeof to === 'string'
-                ? generatePath(to, computedMatch.params)
-                : {
-                    ...to,
-                    pathname: generatePath(to.pathname, computedMatch.params)
-                  }
+              ? generatePath(to, computedMatch.params)
+              : {
+                  ...to,
+                  pathname: generatePath(to.pathname, computedMatch.params)
+                }
             : to
         )
 

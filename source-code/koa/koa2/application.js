@@ -47,11 +47,7 @@ module.exports = class Application extends Emitter {
    * @return {Object}
    */
   toJSON () {
-    return only(this, [
-      'subdomainOffset',
-      'proxy',
-      'env'
-    ])
+    return only(this, ['subdomainOffset', 'proxy', 'env'])
   }
 
   inspect () {
@@ -66,7 +62,11 @@ module.exports = class Application extends Emitter {
    */
 
   use (fn) {
-    if (typeof fn !== 'function') throw new TypeError('middleware must be a function!')
+    if (typeof fn !== 'function') {
+      throw new TypeError(
+        'middleware must be a function!'
+      )
+    }
 
     this.middleware.push(fn)
     return this
@@ -94,7 +94,7 @@ module.exports = class Application extends Emitter {
   handleRequest (ctx, fnMiddleware) {
     const res = ctx.res
     res.statusCode = 404
-    const onerror = err => ctx.onerror(err) // 处理请求错误
+    const onerror = (err) => ctx.onerror(err) // 处理请求错误
     const handleResponse = () => respond(ctx) // 处理正确res
     onFinished(res, onerror) // 请求终止时调用 onerror
     return fnMiddleware(ctx).then(handleResponse).catch(onerror)
@@ -122,7 +122,11 @@ module.exports = class Application extends Emitter {
    * 错误处理
    */
   onerror (err) {
-    if (!(err instanceof Error)) throw new TypeError(util.format('non-error thrown: %j', err))
+    if (!(err instanceof Error)) {
+      throw new TypeError(
+        util.format('non-error thrown: %j', err)
+      )
+    }
 
     if (err.status == 404 || err.expose) return
     if (this.silent) return
@@ -160,7 +164,8 @@ function respond (ctx) {
 
   // 如果是 HEAD 方法
   if (ctx.method == 'HEAD') {
-    if (!res.headersSent && isJSON(body)) { // 如果 res未发出 且 body 是JSON格式
+    if (!res.headersSent && isJSON(body)) {
+      // 如果 res未发出 且 body 是JSON格式
       ctx.length = Buffer.byteLength(JSON.stringify(body)) // 设置 ctx 长度
     }
     return res.end()

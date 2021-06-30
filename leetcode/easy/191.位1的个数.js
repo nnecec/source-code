@@ -2,6 +2,4 @@
  * @param {number} n - a positive integer
  * @return {number}
  */
-var hammingWeight = function (n) {
-
-}
+const hammingWeight = function (n) {}

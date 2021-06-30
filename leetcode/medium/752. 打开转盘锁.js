@@ -3,6 +3,4 @@
  * @param {string} target
  * @return {number}
  */
-const openLock = function (deadends, target) {
-
-}
+const openLock = function (deadends, target) {}

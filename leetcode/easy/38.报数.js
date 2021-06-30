@@ -20,7 +20,7 @@ var countAndSay = function (n) {
       count = 1
       now = prev[i]
     }
-    if (i === prev.length - 1) cache += count + now;
+    if (i === prev.length - 1) cache += count + now
   }
   return cache
-};
+}

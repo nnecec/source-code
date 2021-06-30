@@ -20,7 +20,8 @@ function Promise (executor) {
     if (value instanceof Promise) {
       return value.then(resolve, reject)
     }
-    setTimeout(() => { // 异步执行所有的回调函数
+    setTimeout(() => {
+      // 异步执行所有的回调函数
       if (this.status === PENDING) {
         this.status = ONFULFILLED
         this.value = value
@@ -31,7 +32,8 @@ function Promise (executor) {
     })
   }
   const reject = (reason) => {
-    setTimeout(() => { // 异步执行所有的回调函数
+    setTimeout(() => {
+      // 异步执行所有的回调函数
       if (this.status === PENDING) {
         this.status = ONREJECTED
         this.value = reason
@@ -55,22 +57,25 @@ function Promise (executor) {
 Promise.prototype.then = function (onFulfilled, onRejected) {
   const self = this
   let _promise
-  onFulfilled = typeof onFulfilled === 'function'
-    ? onFulfilled
-    : function (v) {
-      return v
-    }
-  onRejected = typeof onRejected === 'function'
-    ? onRejected
-    : function (r) {
-      throw r
-    }
+  onFulfilled =
+		typeof onFulfilled === 'function'
+		  ? onFulfilled
+		  : function (v) {
+		    return v
+		  }
+  onRejected =
+		typeof onRejected === 'function'
+		  ? onRejected
+		  : function (r) {
+		    throw r
+		  }
 
   // 执行到 then, 并不确定 promise 状态已经是 resolved
   if (self.status === ONFULFILLED) {
     // then() 执行后，返回一个promise, promise 的值
     _promise = new Promise((resolve, reject) => {
-      setTimeout(() => { // 异步执行onResolved
+      setTimeout(() => {
+        // 异步执行onResolved
         try {
           // 执行 onFulfilled()，拿到结果 x
           // onFulfilled是用户传入的，那onFulfilled返回值, 可能性可就多了
@@ -89,7 +94,8 @@ Promise.prototype.then = function (onFulfilled, onRejected) {
 
   if (self.status === ONREJECTED) {
     _promise = new Promise((resolve, reject) => {
-      setTimeout(() => { // 异步执行onRejected
+      setTimeout(() => {
+        // 异步执行onRejected
         try {
           const x = onRejected(self.data)
           resolvePromise(_promise, x, resolve, reject)
@@ -138,16 +144,19 @@ function resolvePromise (_promise, x, resolve, reject) {
   }
   // 如果 x 是 promise
   if (x instanceof Promise) {
-    x.then(function (data) {
-      resolve(data)
-    }, function (e) {
-      reject(e)
-    })
+    x.then(
+      function (data) {
+        resolve(data)
+      },
+      function (e) {
+        reject(e)
+      }
+    )
     return
   }
 
   // 如果 x 是 object 类型或者是 function
-  if ((x !== null) && ((typeof x === 'object') || (typeof x === 'function'))) {
+  if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
     // 拿x.then可能会报错
     try {
       // 先拿到 x.then
@@ -155,23 +164,27 @@ function resolvePromise (_promise, x, resolve, reject) {
       var called
       if (typeof then === 'function') {
         // 这里的写法，是 then.call(this, onFulfilled, onRejected)
-        then.call(x, (y) => {
-          // called 是干什么用的呢？
-          // 有一些 promise 实现的不是很规范，瞎搞的，比如说，onFulfilled, onRejected 本应执行一个，
-          // 但是有些then实现里面，onFulfilled, onRejected都会执行
-          // 为了 onFulfilled 和 onRejected 只能调用一个, 设置一个 called 标志位
-          if (called) {
-            return
+        then.call(
+          x,
+          (y) => {
+            // called 是干什么用的呢？
+            // 有一些 promise 实现的不是很规范，瞎搞的，比如说，onFulfilled, onRejected 本应执行一个，
+            // 但是有些then实现里面，onFulfilled, onRejected都会执行
+            // 为了 onFulfilled 和 onRejected 只能调用一个, 设置一个 called 标志位
+            if (called) {
+              return
+            }
+            called = true
+            return resolvePromise(_promise, y, resolve, reject)
+          },
+          (r) => {
+            if (called) {
+              return
+            }
+            called = true
+            return reject(r)
           }
-          called = true
-          return resolvePromise(_promise, y, resolve, reject)
-        }, (r) => {
-          if (called) {
-            return
-          }
-          called = true
-          return reject(r)
-        })
+        )
       } else {
         resolve(x)
       }

@@ -5,7 +5,8 @@
  * https://leetcode-cn.com/problems/maximum-subarray/solution/hua-jie-suan-fa-53-zui-da-zi-xu-he-by-guanpengchn/
  */
 const maxSubArray = function (nums) {
-  let sum = 0; let max = nums[0]
+  let sum = 0
+  let max = nums[0]
 
   for (const num of nums) {
     if (sum > 0) {

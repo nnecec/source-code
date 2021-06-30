@@ -14,7 +14,6 @@ const only = require('only')
 const util = require('util')
 
 module.exports = {
-
   /**
    * Return the request socket.
    *
@@ -156,7 +155,7 @@ module.exports = {
     // stream
     if (typeof val.pipe === 'function') {
       onFinish(this.res, destroy.bind(null, val))
-      ensureErrorHandler(val, err => this.ctx.onerror(err))
+      ensureErrorHandler(val, (err) => this.ctx.onerror(err))
 
       // overwriting
       if (original != null && original != val) this.remove('Content-Length')
@@ -424,8 +423,11 @@ module.exports = {
     if (this.headerSent) return
 
     if (arguments.length == 2) {
-      if (Array.isArray(val)) val = val.map(v => typeof v === 'string' ? v : String(v))
-      else if (typeof val !== 'string') val = String(val)
+      if (Array.isArray(val)) {
+        val = val.map((v) =>
+          typeof v === 'string' ? v : String(v)
+        )
+      } else if (typeof val !== 'string') val = String(val)
       this.res.setHeader(field, val)
     } else {
       for (const key in field) {
@@ -454,9 +456,7 @@ module.exports = {
     const prev = this.get(field)
 
     if (prev) {
-      val = Array.isArray(prev)
-        ? prev.concat(val)
-        : [prev].concat(val)
+      val = Array.isArray(prev) ? prev.concat(val) : [prev].concat(val)
     }
 
     return this.set(field, val)
@@ -517,11 +517,7 @@ module.exports = {
    */
 
   toJSON () {
-    return only(this, [
-      'status',
-      'message',
-      'header'
-    ])
+    return only(this, ['status', 'message', 'header'])
   },
 
   /**

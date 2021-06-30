@@ -4,8 +4,6 @@
  * @param {number[]} nums
  * @return {number}
  */
-const maxProduct = function (nums) {
-
-}
+const maxProduct = function (nums) {}
 
 console.log(maxProduct([-2, 3, -4]))

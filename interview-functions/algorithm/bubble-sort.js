@@ -26,4 +26,27 @@ function bubbleSort (originArray) {
   return originArray
 }
 
-console.log(bubbleSort([15, 8, 5, 12, 10, 1, 16, 9, 11, 7, 20, 3, 2, 6, 17, 18, 4, 13, 14, 19]))
+console.log(
+  bubbleSort([
+    15,
+    8,
+    5,
+    12,
+    10,
+    1,
+    16,
+    9,
+    11,
+    7,
+    20,
+    3,
+    2,
+    6,
+    17,
+    18,
+    4,
+    13,
+    14,
+    19
+  ])
+)

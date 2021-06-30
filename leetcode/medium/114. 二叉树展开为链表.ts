@@ -7,33 +7,33 @@
  */
 
 class TreeNode {
-  val: number
-  left: TreeNode | null
-  right: TreeNode | null
-  constructor (val?: number, left?: TreeNode | null, right?: TreeNode | null) {
-    this.val = (val === undefined ? 0 : val)
-    this.left = (left === undefined ? null : left)
-    this.right = (right === undefined ? null : right)
-  }
+	val: number;
+	left: TreeNode | null;
+	right: TreeNode | null;
+	constructor(val?: number, left?: TreeNode | null, right?: TreeNode | null) {
+		this.val = val === undefined ? 0 : val;
+		this.left = left === undefined ? null : left;
+		this.right = right === undefined ? null : right;
+	}
 }
 
 /**
  Do not return anything, modify root in-place instead.
  */
-function flatten (root: TreeNode | null): void {
-  if (root === null) return null
+function flatten(root: TreeNode | null): void {
+	if (root === null) return null;
 
-  flatten(root.left)
-  flatten(root.right)
+	flatten(root.left);
+	flatten(root.right);
 
-  const right = root.right
+	const right = root.right;
 
-  root.right = root.left
-  root.left = null
+	root.right = root.left;
+	root.left = null;
 
-  let p = root
-  while (p.right !== null) {
-    p = p.right
-  }
-  p.right = right
-};
+	let p = root;
+	while (p.right !== null) {
+		p = p.right;
+	}
+	p.right = right;
+}

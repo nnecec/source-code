@@ -2,7 +2,7 @@
  * @param {number[]} nums
  * @return {number}
  */
-var majorityElement = function (nums) {
+const majorityElement = function (nums) {
   const arr = []
   for (const num of nums) {
     arr[num] = arr[num] ? arr[num] + 1 : 1

@@ -4,6 +4,4 @@
  * @param {number[]} nums
  * @return {number[][]}
  */
-const threeSum = function (nums) {
-
-}
+const threeSum = function (nums) {}

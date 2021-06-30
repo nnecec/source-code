@@ -45,7 +45,11 @@ const proto = module.exports = {
   onerror (err) {
     if (err == null) return
 
-    if (!(err instanceof Error)) err = new Error(util.format('non-error thrown: %j', err))
+    if (!(err instanceof Error)) {
+      err = new Error(
+        util.format('non-error thrown: %j', err)
+      )
+    }
 
     let headerSent = false
     if (this.headerSent || !this.writable) {
@@ -67,7 +71,7 @@ const proto = module.exports = {
     // first unset all headers
     /* istanbul ignore else */
     if (typeof res.getHeaderNames === 'function') {
-      res.getHeaderNames().forEach(name => res.removeHeader(name))
+      res.getHeaderNames().forEach((name) => res.removeHeader(name))
     } else {
       res._headers = {} // Node < 7.7
     }
@@ -94,10 +98,14 @@ const proto = module.exports = {
 
   get cookies () {
     if (!this[COOKIES]) {
-      this[COOKIES] = new Cookies(this.req, this.res, {
-        keys: this.app.keys,
-        secure: this.request.secure
-      })
+      this[COOKIES] = new Cookies(
+        this.req,
+        this.res,
+        {
+          keys: this.app.keys,
+          secure: this.request.secure
+        }
+      )
     }
     return this[COOKIES]
   },
@@ -115,55 +123,28 @@ if (util.inspect.custom) {
  * res 委托到 proto 上
  */
 
-delegate(proto, 'response')
-  .method('attachment')
-  .method('redirect')
-  .method('remove')
-  .method('vary')
-  .method('set')
-  .method('append')
-  .method('flushHeaders')
-  .access('status')
-  .access('message')
-  .access('body')
-  .access('length')
-  .access('type')
-  .access('lastModified')
-  .access('etag')
-  .getter('headerSent')
-  .getter('writable')
+delegate(proto, 'response').method('attachment').method('redirect').method(
+  'remove'
+).method('vary').method('set').method('append').method('flushHeaders').access(
+  'status'
+).access('message').access('body').access('length').access('type').access(
+  'lastModified'
+).access('etag').getter('headerSent').getter('writable')
 
 /**
  * Request 委托到 proto 上.
  */
 
-delegate(proto, 'request')
-  .method('acceptsLanguages')
-  .method('acceptsEncodings')
-  .method('acceptsCharsets')
-  .method('accepts')
-  .method('get')
-  .method('is')
-  .access('querystring')
-  .access('idempotent')
-  .access('socket')
-  .access('search')
-  .access('method')
-  .access('query')
-  .access('path')
-  .access('url')
-  .access('accept')
-  .getter('origin')
-  .getter('href')
-  .getter('subdomains')
-  .getter('protocol')
-  .getter('host')
-  .getter('hostname')
-  .getter('URL')
-  .getter('header')
-  .getter('headers')
-  .getter('secure')
-  .getter('stale')
-  .getter('fresh')
-  .getter('ips')
-  .getter('ip')
+delegate(proto, 'request').method('acceptsLanguages').method('acceptsEncodings').method(
+  'acceptsCharsets'
+).method('accepts').method('get').method('is').access('querystring').access(
+  'idempotent'
+).access('socket').access('search').access('method').access('query').access(
+  'path'
+).access('url').access('accept').getter('origin').getter('href').getter(
+  'subdomains'
+).getter('protocol').getter('host').getter('hostname').getter('URL').getter(
+  'header'
+).getter('headers').getter('secure').getter('stale').getter('fresh').getter(
+  'ips'
+).getter('ip')

@@ -15,7 +15,7 @@ function newn (fn, ...args) {
  * @param  {...any} args
  */
 function newnn (fn, ...args) {
-  const F = function () { }
+  const F = function () {}
   F.prototype = fn.prototype
   F.prototype.constructor = F
   const obj = new F()

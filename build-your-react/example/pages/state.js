@@ -1,22 +1,22 @@
 import React, { Component } from '../../react/React'
 
 export default class State extends Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {
       count: 0
     }
   }
 
-  componentWillReceiveProps() {
+  componentWillReceiveProps () {
     console.log('state will receive props.')
   }
 
-  componentDidUpdate() {
+  componentDidUpdate () {
     console.log('state did update.')
   }
 
-  componentDidMount() {
+  componentDidMount () {
     console.log('state did mount.')
   }
 
@@ -29,10 +29,9 @@ export default class State extends Component {
     this.setState({
       count: this.state.count + 1
     })
-
   }
 
-  render() {
+  render () {
     const { count } = this.state
     return (
       <div id="state">

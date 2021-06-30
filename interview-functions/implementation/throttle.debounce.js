@@ -3,10 +3,13 @@ function throttle (func, wait) {
   return function (...args) {
     if (blocker === true) return
     blocker = true
-    setTimeout(() => {
-      blocker = false
-      func.apply(this, args)
-    }, wait)
+    setTimeout(
+      () => {
+        blocker = false
+        func.apply(this, args)
+      },
+      wait
+    )
   }
 }
 
@@ -16,9 +19,11 @@ function debounce (func, wait) {
   return function (...args) {
     clearTimeout(timer)
 
-    timer = setTimeout(() => {
-      func.apply(this, args)
-    }, wait)
+    timer = setTimeout(
+      () => {
+        func.apply(this, args)
+      },
+      wait
+    )
   }
 }
-const a = debounce(() => { })

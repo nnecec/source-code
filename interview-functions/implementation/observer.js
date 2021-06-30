@@ -1,4 +1,3 @@
-
 class Observer {
   constructor (initialValue) {
     this.value = initialValue
@@ -24,7 +23,7 @@ class Observer {
     func(this.value)
   }
 }
-new Observer(1).next(val => val + 1).next(console.log)
+new Observer(1).next((val) => val + 1).next(console.log)
 // new Observer(0).next(val => {
 //   throw new Error('err')
 // }).next(val => {
